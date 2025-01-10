@@ -1,0 +1,134 @@
+﻿{
+  "code": "keymold",
+  "classByType": {
+    "keymold-raw-*": "Block",
+    "keymold-burned-*": "BlockKeyMold"
+  },
+  "behaviorsByType": {
+    "*-raw-*": [
+      {
+        "name": "GroundStorable",
+        "properties": { "layout": "SingleCenter" }
+      },
+      {
+        "name": "Unplaceable",
+        "__comment": "The ground storable obsoletes this being a block. Should be an item, but is kept a block for backwards compatibility"
+      },
+      { "name": "RightClickPickup" }
+    ],
+    "*": [
+      { "name": "Lockable" },
+      { "name": "UnstableFalling" },
+      { "name": "HorizontalOrientable", "properties": { "dropBlockFace": "north" }}
+    ]
+  },
+  "entityBehaviorsByType": {
+    "keymold-burned-*": [{ "name": "TemperatureSensitive" }]
+  },
+  "variantgroups": [
+    { "code": "materialtype", "states": ["raw", "burned"] },
+    {
+      "code": "tooltype",
+      "states": [
+        "key"
+      ]
+    },
+    { "code": "side", "loadFromProperties": "abstract/horizontalorientation" }
+  ],
+  "shapebytype": {
+    "*-key-north": { "base": "thievery:keymold", "rotateY": 0 },
+    "*-key-east": { "base": "thievery:keymold", "rotateY": 270 },
+    "*-key-south": { "base": "thievery:keymold", "rotateY": 180 },
+    "*-key-west": { "base": "thievery:keymold", "rotateY": 90 }
+  },
+  "attributes": {
+    "reinforcable": true,
+    "shatteredShape": { "base": "game:block/clay/mold/shattered-ingot" }
+  },
+  "attributesByType": {
+    "keymold-burned-*": {
+      "requiredUnits": 100,
+      "fillHeight": 1,
+      "moldrackable": true,
+      "onmoldrackTransform": { "rotation": { "z": 90 } },
+      "drop": { "type": "item", "code": "thievery:key-{metal}" }
+    }
+  },
+  "entityClassByType": {
+    "keymold-burned-*": "BlockEntityKeyMold"
+  },
+  "combustiblePropsByType": {
+    "keymold-raw-*": {
+      "meltingPoint": 650,
+      "meltingDuration": 45,
+      "smeltedRatio": 1,
+      "smeltingType": "fire",
+      "smeltedStack": {
+        "type": "block",
+        "code": "keymold-burned-{tooltype}-{side}"
+      },
+      "requiresContainer": false
+    }
+  },
+  "blockmaterial": "Ceramic",
+  "creativeinventory": {
+    "general": ["*-north"],
+    "construction": ["*-north"]
+  },
+  "replaceable": 700,
+  "resistance": 1.5,
+  "maxStackSize": 1,
+  "lightAbsorption": 0,
+  "texturesByType": {
+    "keymold-raw-*": { "all": { "base": "game:block/clay/blueclay" } },
+    "keymold-burned-*": {
+      "floor": { "base": "game:block/clay/ceramic-dark" },
+      "other": { "base": "game:block/clay/ceramic" }
+    }
+  },
+  
+  "sounds": { "walk": "game:walk/stone" },
+  "collisionbox": {
+    "x1": 0,
+    "y1": 0,
+    "z1": 0,
+    "x2": 1,
+    "y2": 0.1875,
+    "z2": 1
+  },
+  "selectionbox": {
+    "x1": 0,
+    "y1": 0,
+    "z1": 0,
+    "x2": 1,
+    "y2": 0.1875,
+    "z2": 1
+  },
+  "sideopaque": {
+    "all": false
+  },
+  "sidesolid": {
+    "all": false
+  },
+  "guiTransform": {
+    "rotation": { "x": -22.5937, "y": -45.2968, "z": 0 },
+    "origin": { "x": 0.52, "y": 0.15, "z": 0.5299 },
+    "scale": 2
+  },
+  "fpHandTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 15, "y": -38, "z": -2 },
+    "origin": { "x": 0.5, "y": 0.2, "z": 0.5 }
+  },
+  "tpHandTransform": {
+    "translation": { "x": -1.1, "y": -0.9, "z": -1.3 },
+    "rotation": { "x": -80, "y": -81, "z": -1 },
+    "scale": 0.5
+  },
+  "groundTransform": {
+    "translation": { "x": 0, "y": 0, "z": 0 },
+    "rotation": { "x": 0, "y": -45, "z": 0 },
+    "origin": { "x": 0.5, "y": 0, "z": 0.5 },
+    "scale": 2.2
+  }
+}

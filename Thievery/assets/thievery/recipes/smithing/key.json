@@ -1,0 +1,10 @@
+﻿{
+  "ingredient": { "type": "item", "code": "game:ingot-*", "name": "metal", "allowedVariants": ["copper", "brass", "tinbronze", "bismuthbronze", "blackbronze", "silver", "gold", "iron", "lead", "tin", "zinc", "bismuth", "chromium", "electrum", "platinum", "titanium", "molybdochalkos", "meteoriciron", "steel"] },
+  "name": "Key",
+  "pattern": [[
+    "___###_________",
+    "___#_######____",
+    "___###__#_#____"
+  ]],
+  "output": { "type": "item", "code": "thievery:key-{metal}"  }
+}

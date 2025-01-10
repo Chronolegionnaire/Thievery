@@ -1,0 +1,10 @@
+﻿{
+  "ingredient": { "type": "item", "code": "game:ingot-*", "name": "metal", "allowedVariants": [ "copper", "tinbronze", "bismuthbronze", "blackbronze", "iron", "meteoriciron", "steel"] },
+  "name": "Tension Wrench",
+  "pattern": [[
+    "_______________",
+    "_____######____",
+    "_________##____"
+  ]],
+  "output": { "type": "item", "code": "thievery:tensionwrench-{metal}"  }
+}

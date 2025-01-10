@@ -1,0 +1,47 @@
+{
+	"editor": {
+		"collapsedPaths": "",
+		"allAngles": false,
+		"entityTextureMode": false
+	},
+	"textureWidth": 16,
+	"textureHeight": 16,
+	"textureSizes": {
+		"metal": [16,16]
+	},
+	"textures": {
+		"metal": "game:block/metal/ingot/blackbronze"
+	},
+	"elements": [
+		{
+			"name": "Cube12",
+			"from": [ 7.75, 0.5, 7.5 ],
+			"to": [ 8.25, 1.0, 11.5 ],
+			"rotationOrigin": [ 9.0, 0.5, 7.5 ],
+			"faces": {
+				"north": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
+				"east": { "texture": "#metal", "uv": [ 0.0, 0.0, 4.0, 0.5 ] },
+				"south": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
+				"west": { "texture": "#metal", "uv": [ 0.0, 0.0, 4.0, 0.5 ] },
+				"up": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 4.0 ] },
+				"down": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 4.0 ] }
+			},
+			"children": [
+				{
+					"name": "Cube13",
+					"from": [ 0.001, -0.6, 4.4 ],
+					"to": [ 0.501, 0.5, 4.9 ],
+					"rotationOrigin": [ 1.35, -0.6, 4.4 ],
+					"rotationX": -45.0,
+					"faces": {
+						"north": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 1.0 ] },
+						"east": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 1.0 ] },
+						"south": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 1.0 ] },
+						"west": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 1.0 ] },
+						"up": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
+						"down": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] }
+					}
+				}
+			]
+		}
+	]}

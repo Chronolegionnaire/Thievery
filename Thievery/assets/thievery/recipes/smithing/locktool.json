@@ -1,0 +1,10 @@
+﻿{
+  "ingredient": { "type": "item", "code": "game:ingot-*", "name": "metal", "allowedVariants": [ "copper", "tinbronze", "bismuthbronze", "blackbronze", "iron", "meteoriciron", "steel"] },
+  "name": "Lock Tool",
+  "pattern": [[
+    "_______________",
+    "____#######____",
+    "_______________"
+  ]],
+  "output": { "type": "item", "code": "thievery:locktool-{metal}"  }
+}

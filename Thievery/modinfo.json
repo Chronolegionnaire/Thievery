@@ -1,0 +1,13 @@
+{
+    "type": "code",
+    "modid": "thievery",
+    "name": "Thievery",
+    "authors": [
+        "Chronolegionnaire"
+    ],
+    "description": "Overhauls the vanilla block locking mechanic to use keys and adds lockpicking for use in Vintage Story multiplayer",
+    "version": "1.0.0",
+    "dependencies": {
+        "game": ""
+    }
+}
