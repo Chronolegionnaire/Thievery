@@ -1,10 +1,10 @@
 ﻿{
-  "ingredientPattern": "K",
+  "ingredientPattern": "C	K",	
   "ingredients": {
+    "C": { "type": "item", "code": "game:chisel-*", "isTool": true},
     "K": { "type": "item", "code": "thievery:key-*", "name": "metal", "allowedVariants": ["copper", "brass", "tinbronze", "bismuthbronze", "blackbronze", "silver", "gold", "iron", "lead", "tin", "zinc", "bismuth", "chromium", "electrum", "platinum", "titanium", "molybdochalkos", "meteoriciron", "steel"]  }
   },
-  "shapeless": true,
   "width": 1,
-  "height": 1,
-  "output": { "type": "item", "code": "thievery:key-{metal}"  }
+  "height": 2,
+  "output": { "type": "item", "code": "game:metalbit-{metal}", "quantity": "20"  }
 }
