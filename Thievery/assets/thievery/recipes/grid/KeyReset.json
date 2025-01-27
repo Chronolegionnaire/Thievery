@@ -1,0 +1,10 @@
+﻿{
+  "ingredientPattern": "K",
+  "ingredients": {
+    "K": { "type": "item", "code": "thievery:key-*", "name": "metal", "allowedVariants": ["copper", "brass", "tinbronze", "bismuthbronze", "blackbronze", "silver", "gold", "iron", "lead", "tin", "zinc", "bismuth", "chromium", "electrum", "platinum", "titanium", "molybdochalkos", "meteoriciron", "steel"]  }
+  },
+  "shapeless": true,
+  "width": 1,
+  "height": 1,
+  "output": { "type": "item", "code": "thievery:key-{metal}"  }
+}
