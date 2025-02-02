@@ -23,7 +23,8 @@ namespace Thievery.LockAndKey.Patches.BlockBehaviorLockable
             var lockData = lockManager.GetLockData(pos);
             var heldItem = byPlayer.InventoryManager.ActiveHotbarSlot?.Itemstack?.Collectible;
             if ((heldItem?.Code?.Path?.StartsWith("lockpick-") == true) || 
-                (heldItem?.Code?.Path?.StartsWith("locktool-") == true))
+                (heldItem?.Code?.Path?.StartsWith("locktool-") == true) ||
+                (heldItem?.Code?.Path?.StartsWith("key-") == true))
             {
                 handling = EnumHandling.PreventSubsequent;
                 __result = true;

@@ -28,7 +28,7 @@ namespace Thievery.LockAndKey
             ref EnumHandHandling handling)
         {
             if (blockSel == null || !firstEvent) return;
-
+            handling = EnumHandHandling.PreventDefault;
             var api = byEntity.World.Api;
             var player = (byEntity as EntityPlayer)?.Player;
             if (player == null) return;

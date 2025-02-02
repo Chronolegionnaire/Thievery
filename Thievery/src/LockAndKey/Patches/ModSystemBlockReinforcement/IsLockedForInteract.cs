@@ -22,7 +22,8 @@ namespace Thievery.LockAndKey.Patches.ModSystemBlockReinforcement
             var lockData = lockManager.GetLockData(pos);
             var heldItem = forPlayer.InventoryManager.ActiveHotbarSlot?.Itemstack?.Collectible;
             if ((heldItem?.Code?.Path?.StartsWith("lockpick-") == true) || 
-                (heldItem?.Code?.Path?.StartsWith("locktool-") == true))
+                (heldItem?.Code?.Path?.StartsWith("locktool-") == true) ||
+                (heldItem?.Code?.Path?.StartsWith("key-") == true))
             {
                 __result = false;
                 return false;
