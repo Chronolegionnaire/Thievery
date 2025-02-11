@@ -44,7 +44,6 @@ namespace Thievery.LockAndKey
             }
             var blockPos = blockSel.Position;
             var block = api.World.BlockAccessor.GetBlock(blockPos);
-            Console.WriteLine(block);
             var groundStorageEntity = api.World.BlockAccessor.GetBlockEntity(blockPos) as BlockEntityGroundStorage;
             if (groundStorageEntity != null)
             {
