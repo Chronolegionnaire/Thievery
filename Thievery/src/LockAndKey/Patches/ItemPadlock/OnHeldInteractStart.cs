@@ -24,6 +24,10 @@ namespace Thievery.LockAndKey.Patches.ItemPadlock
             {
                 return false;
             }
+            if (block.Code.PathStartsWith("multiblock"))
+            {
+                return false;
+            }
             var modSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
             var lockManager = modSystem?.LockManager;
             handling = EnumHandHandling.PreventDefault;
