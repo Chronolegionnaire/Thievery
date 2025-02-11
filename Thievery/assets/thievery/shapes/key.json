@@ -10,7 +10,6 @@
 		"metal": [16,16]
 	},
 	"textures": {
-		"metal": "game:block/metal/ingot/blackbronze"
 	},
 	"elements": [
 		{
@@ -174,36 +173,6 @@
 								"up": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 1.0 ] },
 								"down": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 1.0 ] }
 							}
-						},
-						{
-							"name": "Cube8",
-							"from": [ -0.001, 0.9599, -0.8185 ],
-							"to": [ 0.499, 1.4599, -0.0185 ],
-							"rotationOrigin": [ -0.001, 0.9899, 1.1515 ],
-							"rotationX": -45.0,
-							"faces": {
-								"north": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"east": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"south": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"west": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"up": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"down": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] }
-							}
-						},
-						{
-							"name": "Cube9",
-							"from": [ -0.001, -0.0827, 0.3021 ],
-							"to": [ 0.499, 0.4173, 1.1021 ],
-							"rotationOrigin": [ -0.001, -0.0707, 2.2121 ],
-							"rotationX": -45.0,
-							"faces": {
-								"north": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"east": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"south": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"west": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"up": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
-								"down": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] }
-							}
 						}
 					]
 				},
@@ -224,8 +193,8 @@
 					"children": [
 						{
 							"name": "Cube24",
-							"from": [ 0.001, -0.5, -1.0 ],
-							"to": [ 0.5, 0.0, 0.1 ],
+							"from": [ 0.01, -0.5, -1.0 ],
+							"to": [ 0.509, 0.0, 0.1 ],
 							"rotationOrigin": [ 0.0, -0.5, 1.0 ],
 							"rotationX": 45.0,
 							"faces": {
@@ -239,8 +208,8 @@
 							"children": [
 								{
 									"name": "Cube25",
-									"from": [ -0.001, 1.1314, -0.5657 ],
-									"to": [ 0.498, 1.6314, 0.4343 ],
+									"from": [ -0.0125, 1.1314, -0.5657 ],
+									"to": [ 0.4865, 1.6314, 0.4343 ],
 									"rotationOrigin": [ -0.001, 1.1314, 1.4343 ],
 									"rotationX": -90.0,
 									"faces": {
@@ -269,8 +238,8 @@
 								},
 								{
 									"name": "Cube27",
-									"from": [ -0.001, -0.0827, 0.3021 ],
-									"to": [ 0.499, 0.4173, 1.1021 ],
+									"from": [ -0.001, -0.079, 0.3021 ],
+									"to": [ 0.499, 0.421, 1.1021 ],
 									"rotationOrigin": [ -0.001, -0.0707, 2.2121 ],
 									"rotationX": -45.0,
 									"faces": {
