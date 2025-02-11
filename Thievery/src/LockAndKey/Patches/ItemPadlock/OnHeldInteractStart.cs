@@ -3,6 +3,7 @@ using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Server;
+using Vintagestory.GameContent;
 
 namespace Thievery.LockAndKey.Patches.ItemPadlock
 {
@@ -18,6 +19,11 @@ namespace Thievery.LockAndKey.Patches.ItemPadlock
             if (blockSel == null) return false;
             var api = byEntity.World.Api;
             var pos = blockSel.Position;
+            var block = byEntity.World.BlockAccessor.GetBlock(pos);
+            if (block is BlockDoor door && door.IsUpperHalf())
+            {
+                return false;
+            }
             var modSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
             var lockManager = modSystem?.LockManager;
             handling = EnumHandHandling.PreventDefault;

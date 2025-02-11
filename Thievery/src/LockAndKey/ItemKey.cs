@@ -27,21 +27,38 @@ namespace Thievery.LockAndKey
             bool firstEvent,
             ref EnumHandHandling handling)
         {
-            if (blockSel == null || !firstEvent) return;
-            handling = EnumHandHandling.PreventDefault;
-            var api = byEntity.World.Api;
-            var player = (byEntity as EntityPlayer)?.Player;
-            if (player == null) return;
+            base.OnHeldInteractStart(slot, byEntity, blockSel, entitySel, firstEvent, ref handling);
+            if (blockSel == null || !firstEvent)
+            {
+                return;
+            }
 
+            handling = EnumHandHandling.PreventDefault;
+
+            var api = byEntity.World.Api;
+           
+            var player = (byEntity as EntityPlayer)?.Player;
+            if (player == null)
+            {
+                return;
+            }
             var blockPos = blockSel.Position;
             var block = api.World.BlockAccessor.GetBlock(blockPos);
-            if (block is BlockGroundStorage && api.Side == EnumAppSide.Client)
+            var groundStorageEntity = api.World.BlockAccessor.GetBlockEntity(blockPos) as BlockEntityGroundStorage;
+            if (groundStorageEntity != null)
             {
-                HandleBlockKeyMoldPreInteraction(slot, byEntity, blockPos, block, ref handling);
-                return;
+                int i = 0;
+
+                var inventorySlot = groundStorageEntity.Inventory[i];
+                if (string.Equals(inventorySlot?.Itemstack?.Block?.Code?.Path, "keymoldpre", StringComparison.OrdinalIgnoreCase))
+                {
+                    HandleBlockKeyMoldPreInteraction(slot, byEntity, blockPos, block, ref handling);
+                    return;
+                }
             }
             HandleLockInteraction(slot, byEntity, blockSel, ref handling);
         }
+
 
         private void HandleLockInteraction(
             ItemSlot slot,
@@ -51,8 +68,8 @@ namespace Thievery.LockAndKey
         {
             var api = byEntity.World.Api;
             var player = (byEntity as EntityPlayer)?.Player;
-            if (player == null || blockSel == null || !byEntity.Controls.Sneak) return;
-
+            if (player == null || blockSel == null) return;
+            handling = EnumHandHandling.PreventDefault;
             var thieveryModSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
             var lockManager = thieveryModSystem?.LockManager;
             if (lockManager == null) return;
@@ -97,8 +114,6 @@ namespace Thievery.LockAndKey
                     PlayLockSound(api, pos, newLockState);
                 }
             }
-
-            handling = EnumHandHandling.PreventDefault;
         }
 
         private void HandleBlockKeyMoldPreInteraction(

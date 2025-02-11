@@ -16,7 +16,7 @@ namespace Thievery.LockAndKey
             bool firstEvent,
             ref EnumHandHandling handling)
         {
-            if (blockSel == null || !byEntity.Controls.Sneak || !firstEvent) return;
+            if (blockSel == null || !firstEvent) return;
 
             var api = byEntity.World.Api;
             var player = (byEntity as EntityPlayer)?.Player;

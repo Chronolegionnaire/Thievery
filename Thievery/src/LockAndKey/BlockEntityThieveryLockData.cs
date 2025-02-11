@@ -63,7 +63,7 @@ namespace Thievery.LockAndKey
         {
             base.GetBlockInfo(forPlayer, description);
 
-            if (!description.ToString().Contains("Locked State:"))
+            if (!string.IsNullOrWhiteSpace(lockUID) && !description.ToString().Contains("Locked State:"))
             {
                 description.AppendLine($"Locked State: {(lockedState ? "Locked" : "Unlocked")}");
             }
