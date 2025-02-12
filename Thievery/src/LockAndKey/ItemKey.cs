@@ -83,12 +83,6 @@ namespace Thievery.LockAndKey
                 return;
             }
 
-            if (!lockManager.IsPlayerAuthorized(pos, player))
-            {
-                handling = EnumHandHandling.PreventDefault;
-                return;
-            }
-
             string blockLockUid = lockData.LockUid;
 
             if (string.IsNullOrEmpty(blockLockUid))
@@ -98,6 +92,10 @@ namespace Thievery.LockAndKey
 
             if (string.IsNullOrEmpty(keyUid))
             {
+                if (!lockManager.IsPlayerAuthorized(pos, player))
+                {
+                    return;
+                }
                 slot.Itemstack.Attributes.SetString("keyUID", blockLockUid);
 
                 if (api.Side == EnumAppSide.Client)
