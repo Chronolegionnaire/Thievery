@@ -66,30 +66,52 @@ namespace Thievery.LockAndKey
             BlockSelection blockSel,
             ref EnumHandHandling handling)
         {
+            if (byEntity == null || byEntity.World == null || byEntity.World.Api == null)
+            {
+                return;
+            }
             var api = byEntity.World.Api;
+            if (slot == null || slot.Itemstack == null || slot.Itemstack.Attributes == null)
+            {
+                return;
+            }
+            if (blockSel == null)
+            {
+                return;
+            }
             var player = (byEntity as EntityPlayer)?.Player;
-            if (player == null || blockSel == null) return;
+            if (player == null)
+            {
+                return;
+            }
             handling = EnumHandHandling.PreventDefault;
             var thieveryModSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
-            var lockManager = thieveryModSystem?.LockManager;
-            if (lockManager == null) return;
+            if (thieveryModSystem == null)
+            {
+                return;
+            }
+            var lockManager = thieveryModSystem.LockManager;
+            if (lockManager == null)
+            {
+                return;
+            }
+            string keyUid = slot.Itemstack.Attributes.GetString("keyUID", "");
+            if (blockSel.Position == null)
+            {
+                return;
+            }
 
-            var keyUid = slot.Itemstack.Attributes.GetString("keyUID", "");
             BlockPos pos = blockSel.Position;
             var lockData = lockManager.GetLockData(pos);
-
             if (lockData == null)
             {
                 return;
             }
-
             string blockLockUid = lockData.LockUid;
-
             if (string.IsNullOrEmpty(blockLockUid))
             {
                 return;
             }
-
             if (string.IsNullOrEmpty(keyUid))
             {
                 if (!lockManager.IsPlayerAuthorized(pos, player))
@@ -97,11 +119,12 @@ namespace Thievery.LockAndKey
                     return;
                 }
                 slot.Itemstack.Attributes.SetString("keyUID", blockLockUid);
-
                 if (api.Side == EnumAppSide.Client)
                 {
-                    ICoreClientAPI capi = api as ICoreClientAPI;
-                    ShowNameDialog(capi, slot);
+                    if (api is ICoreClientAPI capi)
+                    {
+                        ShowNameDialog(capi, slot);
+                    }
                 }
             }
             else
