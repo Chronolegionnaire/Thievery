@@ -53,4 +53,13 @@ namespace Thievery.LockAndKey
         [ProtoMember(3)]
         public string KeyName { get; set; }
     }
+    [ProtoContract]
+    public class LockPickCompletePacket
+    {
+        [ProtoMember(1)]
+        public BlockPos BlockPos { get; set; }
+        
+        [ProtoMember(2)]
+        public string LockUid { get; set; }
+    }
 }

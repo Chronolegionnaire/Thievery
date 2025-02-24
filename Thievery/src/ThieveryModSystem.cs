@@ -1,6 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using CarryOn;
 using HarmonyLib;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using ProtoBuf;
 using Thievery.Config;
@@ -11,6 +14,7 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 using XLib.XLeveling;
@@ -24,18 +28,21 @@ namespace Thievery
         private Harmony harmony;
         private LockpickHudElement lockpickHudElement;
         public LockpickHudElement LockpickHudElement => lockpickHudElement;
-        private IClientNetworkChannel clientChannel;
+        public IClientNetworkChannel clientChannel;
         private IServerNetworkChannel serverChannel;
         public static Config.Config LoadedConfig { get; set; }
         private ConfigLibCompatibility _configLibCompatibility;
         private XLibSkills xLibSkills;
-        public override void StartPre(ICoreAPI api)
+        private string configFilename = "ThieveryConfig.json";
+        private ICoreServerAPI _serverApi;
+        private ICoreClientAPI _clientApi;
+        public override void StartPre(ICoreAPI _api)
         {
-            if (api.ModLoader.IsModEnabled("xlib") || api.ModLoader.IsModEnabled("xlibpatch"))
+            /*if (api.ModLoader.IsModEnabled("xlib") || api.ModLoader.IsModEnabled("xlibpatch"))
             {
                 xLibSkills = new XLibSkills();
                 xLibSkills.Initialize(api);
-            }
+            }*/
         }
         
         public override void Start(ICoreAPI Api)
@@ -43,7 +50,6 @@ namespace Thievery
             this.api = Api;
             LoadConfig(api);
             base.Start(Api);
-            LoadedConfig = ModConfig.ReadConfig<Config.Config>(api, "ThieveryConfig.json");
             harmony = new Harmony("com.thieverymod");
             harmony.PatchAll();
             Api.RegisterItemClass("ItemKey", typeof(ItemKey));
@@ -54,13 +60,97 @@ namespace Thievery
             Api.RegisterBlockEntityClass("BlockEntityKeyMold", typeof(BlockEntityKeyMold));
             Api.RegisterBlockEntityBehaviorClass("ThieveryLockData", typeof(BlockEntityThieveryLockData));
         }
+        private Config.Config LoadConfigFromFile(ICoreAPI api)
+        {
+            var jsonObj = api.LoadModConfig(configFilename);
+            if (jsonObj == null)
+            {
+                return null;
+            }
+            var existingJson = JObject.Parse(jsonObj.Token.ToString());
+            var configType = typeof(Config.Config);
+            var properties = configType.GetProperties();
+            var defaultConfig = new Config.Config();
+            bool needsSave = false;
+    
+            foreach (var prop in properties)
+            {
+                string pascalCaseName = prop.Name;
+                string camelCaseName = char.ToLowerInvariant(prop.Name[0]) + prop.Name.Substring(1);
+
+                // Check both pascal and camel case
+                var hasValue = false;
+                JToken value = null;
+        
+                if (existingJson.ContainsKey(pascalCaseName))
+                {
+                    value = existingJson[pascalCaseName];
+                    hasValue = value != null && value.Type != JTokenType.Null;
+                }
+                else if (existingJson.ContainsKey(camelCaseName))
+                {
+                    value = existingJson[camelCaseName];
+                    hasValue = value != null && value.Type != JTokenType.Null;
+                }
+
+                if (!hasValue)
+                {
+                    var defaultValue = prop.GetValue(defaultConfig);
+                    existingJson[pascalCaseName] = JToken.FromObject(defaultValue);
+                    needsSave = true;
+                }
+            }
+
+            var settings = new JsonSerializerSettings
+            {
+                ObjectCreationHandling = ObjectCreationHandling.Replace,
+                DefaultValueHandling = DefaultValueHandling.Populate,
+                NullValueHandling = NullValueHandling.Include
+            };
+    
+            var config = JsonConvert.DeserializeObject<Config.Config>(existingJson.ToString(), settings);
+    
+            if (needsSave)
+            {
+                SaveConfig(api, config);
+            }
+    
+            return config;
+        }
+        private void SaveConfig(ICoreAPI api, Config.Config config = null)
+        {
+            if (config == null)
+            {
+                config = LoadedConfig;
+            }
+
+            if (config == null)
+            {
+                return;
+            }
+
+            var jsonSettings = new JsonSerializerSettings
+            {
+                Formatting = Formatting.Indented,
+                NullValueHandling = NullValueHandling.Include,
+                DefaultValueHandling = DefaultValueHandling.Include,
+                ObjectCreationHandling = ObjectCreationHandling.Replace,
+                ContractResolver = new Newtonsoft.Json.Serialization.DefaultContractResolver()
+            };
+            var configJson = JsonConvert.SerializeObject(config, jsonSettings);
+            ModConfig.WriteConfig(api, configFilename, config);
+        }
         private void LoadConfig(ICoreAPI api)
         {
-            LoadedConfig = ModConfig.ReadConfig<Config.Config>(api, "ThieveryConfig.json");
-            if (LoadedConfig == null)
+            var savedConfig = LoadConfigFromFile(api);
+            if (savedConfig == null)
             {
                 LoadedConfig = new Config.Config();
-                ModConfig.WriteConfig(api, "ThieveryConfig.json", LoadedConfig);
+                SaveConfig(api);
+            }
+            else
+            {
+                LoadedConfig = savedConfig;
             }
         }
         public override void StartServerSide(ICoreServerAPI Api)
@@ -68,6 +158,7 @@ namespace Thievery
             base.StartServerSide(Api);
             LockManager = new LockManager(api);
             ICoreServerAPI sapi = api as ICoreServerAPI;
+            _serverApi = Api;
             this.serverChannel = sapi.Network.RegisterChannel("thievery")
                 .RegisterMessageType<PickProgressPacket>()
                 .RegisterMessageType<TransformMoldPacket>()
@@ -75,6 +166,7 @@ namespace Thievery
                 .RegisterMessageType<SyncKeyAttributesPacket>()
                 .RegisterMessageType<ConfigSyncPacket>()
                 .RegisterMessageType<ConfigSyncRequestPacket>()
+                .RegisterMessageType<LockPickCompletePacket>()
                 .SetMessageHandler<TransformMoldPacket>(OnTransformMoldRequest)
                 .SetMessageHandler<SyncKeyAttributesPacket>(OnSyncKeyAttributesPacket)
                 .SetMessageHandler<ConfigSyncRequestPacket>(OnConfigSyncRequestReceived)
@@ -84,7 +176,10 @@ namespace Thievery
                     if (slot?.Itemstack == null) return;
                     slot.Itemstack.Attributes.SetString("keyName", packet.KeyName);
                     slot.MarkDirty();
-                });
+                })
+                .SetMessageHandler<LockPickCompletePacket>(OnLockPickCompletePacket);
+            var carrySystem = sapi.ModLoader.GetModSystem<CarrySystem>();
+            carrySystem.CarryEvents.OnRestoreEntityBlockData += OnCarryOnRestoreBlockEntity;
         }
 
         public override void StartClientSide(ICoreClientAPI Api)
@@ -92,6 +187,7 @@ namespace Thievery
             base.StartClientSide(Api);
             LockManager = new LockManager(Api);
             lockpickHudElement = new LockpickHudElement(Api);
+            _clientApi = Api;
             Api.Event.RegisterRenderer(lockpickHudElement, EnumRenderStage.Ortho, "lockpickhud");
             _configLibCompatibility = new ConfigLibCompatibility((ICoreClientAPI)api);
             clientChannel = Api.Network.RegisterChannel("thievery")
@@ -100,6 +196,8 @@ namespace Thievery
                 .RegisterMessageType<KeyNameUpdatePacket>()
                 .RegisterMessageType<SyncKeyAttributesPacket>()
                 .RegisterMessageType<ConfigSyncPacket>()
+                .RegisterMessageType<ConfigSyncRequestPacket>()
+                .RegisterMessageType<LockPickCompletePacket>()
                 .SetMessageHandler<PickProgressPacket>(OnPickProgressReceived)
                 .SetMessageHandler<ConfigSyncPacket>(OnConfigSyncReceived);
         }
@@ -113,16 +211,14 @@ namespace Thievery
                     block.CollectibleBehaviors != null &&
                     block.CollectibleBehaviors.Any(b => b.GetType().Name == "BlockBehaviorLockable"))
                 {
-                    if (block.EntityClass == null)
+                    if (string.IsNullOrEmpty(block.EntityClass))
                     {
                         block.EntityClass = "Generic";
                     }
-
                     if (block.BlockEntityBehaviors == null)
                     {
                         block.BlockEntityBehaviors = new BlockEntityBehaviorType[0];
                     }
-
                     bool hasBehavior = block.BlockEntityBehaviors.Any(b => b.Name == "ThieveryLockData");
                     if (!hasBehavior)
                     {
@@ -139,6 +235,7 @@ namespace Thievery
                 }
             }
         }
+
         private void OnPickProgressReceived(PickProgressPacket packet)
         {
             if (lockpickHudElement == null) return;
@@ -224,29 +321,43 @@ namespace Thievery
 
         private void OnConfigSyncRequestReceived(IServerPlayer fromPlayer, ConfigSyncRequestPacket packet)
         {
+            var configToSend = new Config.Config(_serverApi, LoadedConfig);
             var configSyncPacket = new ConfigSyncPacket
             {
-                ServerConfig = LoadedConfig,
+                ServerConfig = configToSend,
             };
-
             serverChannel.SendPacket(configSyncPacket, fromPlayer);
         }
+
         private void OnConfigSyncReceived(ConfigSyncPacket packet)
         {
-            LoadedConfig = new Config.Config
+            if (_clientApi == null) return;
+            LoadedConfig = packet.ServerConfig;
+        }
+        private void OnLockPickCompletePacket(IServerPlayer player, LockPickCompletePacket packet)
+        {
+            var lockData = LockManager.GetLockData(packet.BlockPos);
+            if (lockData != null && lockData.IsLocked)
             {
-                LockPicking = packet.ServerConfig.LockPicking,
-                BlackBronzePadlockPickDurationSeconds = packet.ServerConfig.BlackBronzePadlockPickDurationSeconds,
-                BismuthBronzePadlockPickDurationSeconds = packet.ServerConfig.BismuthBronzePadlockPickDurationSeconds,
-                TinBronzePadlockPickDurationSeconds = packet.ServerConfig.TinBronzePadlockPickDurationSeconds,
-                IronPadlockPickDurationSeconds = packet.ServerConfig.IronPadlockPickDurationSeconds,
-                MeteoricIronPadlockPickDurationSeconds = packet.ServerConfig.MeteoricIronPadlockPickDurationSeconds,
-                SteelPadlockPickDurationSeconds = packet.ServerConfig.SteelPadlockPickDurationSeconds,
-                LockPickDamageChance = packet.ServerConfig.LockPickDamageChance,
-                LockPickDamage = packet.ServerConfig.LockPickDamage,
-                RequiresPilferer = packet.ServerConfig.RequiresPilferer,
-                RequiresTinkerer = packet.ServerConfig.RequiresTinkerer
-            };
+                LockManager.SetLock(packet.BlockPos, lockData.LockUid, false);
+                _serverApi.World.PlaySoundAt(
+                    new AssetLocation("thievery:sounds/lock"),
+                    packet.BlockPos,
+                    0,
+                    null,
+                    true,
+                    32f,
+                    1f
+                );
+            }
+        }
+        private void OnCarryOnRestoreBlockEntity(BlockEntity blockEntity, ITreeAttribute blockEntityData, bool dropped)
+        {
+            var lockBehavior = blockEntity?.GetBehavior<BlockEntityThieveryLockData>();
+            if (lockBehavior != null)
+            {
+                lockBehavior.FromTreeAttributes(blockEntityData, blockEntity.Api.World);
+            }
         }
     }
 }

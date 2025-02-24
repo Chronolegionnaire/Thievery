@@ -197,12 +197,15 @@ namespace Thievery.LockpickAndTensionWrench
 
         public void Dispose()
         {
+            api.Event.UnregisterRenderer(this, EnumRenderStage.Ortho);
+    
             if (circleMesh != null)
             {
                 api.Render.DeleteMesh(circleMesh);
                 circleMesh = null;
             }
         }
+
 
         public double RenderOrder => 0.0;
         public int RenderRange => 1000;

@@ -16,7 +16,6 @@ namespace Thievery.LockpickAndTensionWrench
         private LockManager lockManager;
 
         private Config.Config Config => ThieveryModSystem.LoadedConfig;
-
         private int GetPickDuration(string lockType)
         {
             var lockPickDurations = new Dictionary<string, int>
@@ -26,7 +25,19 @@ namespace Thievery.LockpickAndTensionWrench
                 { "padlock-tinbronze", (int)(Config.TinBronzePadlockPickDurationSeconds * 1000) },
                 { "padlock-iron", (int)(Config.IronPadlockPickDurationSeconds * 1000) },
                 { "padlock-meteoriciron", (int)(Config.MeteoricIronPadlockPickDurationSeconds * 1000) },
-                { "padlock-steel", (int)(Config.SteelPadlockPickDurationSeconds * 1000) }
+                { "padlock-steel", (int)(Config.SteelPadlockPickDurationSeconds * 1000) },
+                { "padlock-copper", (int)(Config.CopperPadlockPickDurationSeconds * 1000) },
+                { "padlock-nickel", (int)(Config.NickelPadlockPickDurationSeconds * 1000) },
+                { "padlock-silver", (int)(Config.SilverPadlockPickDurationSeconds * 1000) },
+                { "padlock-gold", (int)(Config.GoldPadlockPickDurationSeconds * 1000) },
+                { "padlock-titanium", (int)(Config.TitaniumPadlockPickDurationSeconds * 1000) },
+                { "padlock-lead", (int)(Config.LeadPadlockPickDurationSeconds * 1000) },
+                { "padlock-zinc", (int)(Config.ZincPadlockPickDurationSeconds * 1000) },
+                { "padlock-tin", (int)(Config.TinPadlockPickDurationSeconds * 1000) },
+                { "padlock-chromium", (int)(Config.ChromiumPadlockPickDurationSeconds * 1000) },
+                { "padlock-cupronickel", (int)(Config.CupronickelPadlockPickDurationSeconds * 1000) },
+                { "padlock-electrum", (int)(Config.ElectrumPadlockPickDurationSeconds * 1000) },
+                { "padlock-platinum", (int)(Config.PlatinumPadlockPickDurationSeconds * 1000) }
             };
 
             if (lockPickDurations.TryGetValue(lockType, out int duration))
@@ -35,8 +46,6 @@ namespace Thievery.LockpickAndTensionWrench
             }
             return (int)(Config.BlackBronzePadlockPickDurationSeconds * 1000);
         }
-
-
         private class PlayerPickData
         {
             public bool IsPicking = false;
@@ -112,7 +121,6 @@ namespace Thievery.LockpickAndTensionWrench
             }
 
             FlatPickDurationMs = GetPickDuration(lockData.LockType);
-
             string playerUid = player.PlayerUID;
             if (!pickDataByPlayerUid.TryGetValue(playerUid, out PlayerPickData pickData))
             {
@@ -122,7 +130,6 @@ namespace Thievery.LockpickAndTensionWrench
 
             pickData.IsPicking = true;
             pickData.PickStartTime = api.World.ElapsedMilliseconds;
-
             if (api.Side == EnumAppSide.Client)
             {
                 ICoreClientAPI capi = api as ICoreClientAPI;
@@ -149,6 +156,18 @@ namespace Thievery.LockpickAndTensionWrench
                 });
 
                 pickData.LockpickingSound?.Start();
+            }
+            if (api.Side == EnumAppSide.Server)
+            {
+                api.World.PlaySoundAt(
+                    new AssetLocation("thievery", "sounds/lockpicking"),
+                    blockSel.Position,
+                    0.5,
+                    player,
+                    true,
+                    16f, 
+                    1f 
+                );
             }
 
             handling = EnumHandHandling.PreventDefault;
@@ -279,21 +298,18 @@ namespace Thievery.LockpickAndTensionWrench
             var lockData = lockManager.GetLockData(blockSel.Position);
             if (lockData != null && lockData.IsLocked)
             {
-                lockManager.SetLock(blockSel.Position, lockData.LockUid, false);
-
-                api.World.PlaySoundAt(
-                    new AssetLocation("thievery:sounds/lock"),
-                    blockSel.Position.X + 0.5,
-                    blockSel.Position.Y + 0.5,
-                    blockSel.Position.Z + 0.5,
-                    player,
-                    true,
-                    32f,
-                    1f
-                );
+                if (api.Side == EnumAppSide.Client)
+                {
+                    var clientApi = api as ICoreClientAPI;
+                    StopPicking(player, pickData);
+                    clientApi.Network.GetChannel("thievery").SendPacket(new LockPickCompletePacket
+                    {
+                        BlockPos = blockSel.Position,
+                        LockUid = lockData.LockUid
+                    });
+                }
+                StopPicking(player, pickData);
             }
-
-            StopPicking(player, pickData);
         }
 
         private void StopPicking(IPlayer player, PlayerPickData pickData)
@@ -313,10 +329,11 @@ namespace Thievery.LockpickAndTensionWrench
                 }
 
                 var clientApi = api as ICoreClientAPI;
-                var hudElement = clientApi?.ModLoader?.GetModSystem<ThieveryModSystem>()?.LockpickHudElement;
-                if (hudElement != null)
+                var modSystem = clientApi?.ModLoader?.GetModSystem<ThieveryModSystem>();
+                if (modSystem != null && modSystem.LockpickHudElement != null)
                 {
-                    hudElement.CircleVisible = false;
+                    modSystem.LockpickHudElement.CircleVisible = false;
+                    modSystem.LockpickHudElement.CircleProgress = 0f;
                 }
             }
         }

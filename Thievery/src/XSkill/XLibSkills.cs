@@ -10,7 +10,7 @@ namespace Thievery.XSkill
         public void Initialize(ICoreAPI api)
         {
             _api = api;
-            XLeveling xleveling = api.ModLoader.GetModSystem<XLeveling>();
+            /*XLeveling xleveling = api.ModLoader.GetModSystem<XLeveling>();
             Skill skill = xleveling.GetSkill("thievery", false);
             if (skill == null)
             {
@@ -132,7 +132,7 @@ namespace Thievery.XSkill
                 false
             );
             burglarsEyeAbility.OnPlayerAbilityTierChanged += OnBurglarsEye;
-            skill.AddAbility(burglarsEyeAbility);
+            skill.AddAbility(burglarsEyeAbility);*/
         }
 
         private void OnThief(PlayerAbility playerAbility, int oldTier)

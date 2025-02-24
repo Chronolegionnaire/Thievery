@@ -1,0 +1,86 @@
+[
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/6",
+    "value": "copper",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/7",
+    "value": "nickel",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/8",
+    "value": "silver",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/9",
+    "value": "gold",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/10",
+    "value": "titanium",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/11",
+    "value": "lead",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/12",
+    "value": "zinc",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/13",
+    "value": "tin",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/14",
+    "value": "chromium",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/15",
+    "value": "cupronickel",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/16",
+    "value": "electrum",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/ingredient/allowedVariants/17",
+    "value": "platinum",
+    "file": "game:recipes/smithing/padlock.json",
+    "side": "Server"
+  }
+]

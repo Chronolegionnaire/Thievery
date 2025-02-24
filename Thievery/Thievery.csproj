@@ -7,6 +7,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Reference Include="CarryOn">
+          <HintPath>..\..\..\Documents\CarryOn.dll</HintPath>
+          <Private>False</Private>
+        </Reference>
         <Reference Include="configlib">
           <HintPath>..\..\..\Documents\configlib.dll</HintPath>
           <Private>False</Private>

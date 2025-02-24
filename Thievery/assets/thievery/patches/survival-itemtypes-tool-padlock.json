@@ -1,0 +1,86 @@
+[
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/6",
+    "value": "copper",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/7",
+    "value": "nickel",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/8",
+    "value": "silver",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/9",
+    "value": "gold",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/10",
+    "value": "titanium",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/11",
+    "value": "lead",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/12",
+    "value": "zinc",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/13",
+    "value": "tin",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/14",
+    "value": "chromium",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/15",
+    "value": "cupronickel",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/16",
+    "value": "electrum",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  },
+  {
+    "op": "add",
+    "path": "/variantgroups/0/states/17",
+    "value": "platinum",
+    "file": "game:itemtypes/tool/padlock.json",
+    "side": "Server"
+  }
+]
