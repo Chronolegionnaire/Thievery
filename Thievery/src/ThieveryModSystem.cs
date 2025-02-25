@@ -178,8 +178,11 @@ namespace Thievery
                     slot.MarkDirty();
                 })
                 .SetMessageHandler<LockPickCompletePacket>(OnLockPickCompletePacket);
-            var carrySystem = sapi.ModLoader.GetModSystem<CarrySystem>();
-            carrySystem.CarryEvents.OnRestoreEntityBlockData += OnCarryOnRestoreBlockEntity;
+            if (api.ModLoader.IsModEnabled("carryon"))
+            {
+                var carrySystem = sapi.ModLoader.GetModSystem<CarrySystem>();
+                carrySystem.CarryEvents.OnRestoreEntityBlockData += OnCarryOnRestoreBlockEntity;
+            }
         }
 
         public override void StartClientSide(ICoreClientAPI Api)

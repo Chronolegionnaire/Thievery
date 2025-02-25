@@ -25,6 +25,7 @@ namespace Thievery.Patches
             "game:trapdoor*",
             "game:chest-trunk*",
             "game:storagevessel*",
+            "game:woodenfencegate*"
         };
 
         [HarmonyPostfix]
