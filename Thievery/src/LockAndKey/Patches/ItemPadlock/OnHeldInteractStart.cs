@@ -2,7 +2,6 @@
 using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
-using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
 namespace Thievery.LockAndKey.Patches.ItemPadlock
@@ -24,15 +23,25 @@ namespace Thievery.LockAndKey.Patches.ItemPadlock
             {
                 return false;
             }
-            if (block.Code.PathStartsWith("multiblock"))
+            if (block.Code == null || block.Code.PathStartsWith("multiblock"))
             {
                 return false;
             }
+            
             var modSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
-            var lockManager = modSystem?.LockManager;
+            if (modSystem == null || modSystem.LockManager == null)
+            {
+                return true;
+            }
+            var lockManager = modSystem.LockManager;
+            
             handling = EnumHandHandling.PreventDefault;
             var modBre = api.ModLoader.GetModSystem<Vintagestory.GameContent.ModSystemBlockReinforcement>();
-            var player = (byEntity as EntityPlayer)?.Player;
+            if (modBre == null)
+            {
+                return true;
+            }
+            
             if (modBre.IsReinforced(pos))
             {
                 var lockData = lockManager.GetLockData(pos);
@@ -40,7 +49,6 @@ namespace Thievery.LockAndKey.Patches.ItemPadlock
                 {
                     return true;
                 }
-
 
                 if (api.Side == EnumAppSide.Server)
                 {
