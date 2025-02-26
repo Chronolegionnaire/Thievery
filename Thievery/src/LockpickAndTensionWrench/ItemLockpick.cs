@@ -46,11 +46,22 @@ namespace Thievery.LockpickAndTensionWrench
             }
             return (int)(Config.BlackBronzePadlockPickDurationSeconds * 1000);
         }
-        private class PlayerPickData
+        public class PlayerPickData
         {
             public bool IsPicking = false;
             public long PickStartTime = 0;
             public ILoadedSound LockpickingSound;
+        }
+        
+        public void StopPickingForPlayer(IPlayer player)
+        {
+            if (player == null) return;
+        
+            string playerUid = player.PlayerUID;
+            if (pickDataByPlayerUid.TryGetValue(playerUid, out PlayerPickData pickData) && pickData.IsPicking)
+            {
+                StopPicking(player, pickData);
+            }
         }
 
         private Dictionary<string, PlayerPickData> pickDataByPlayerUid = new Dictionary<string, PlayerPickData>();
@@ -184,39 +195,47 @@ namespace Thievery.LockpickAndTensionWrench
             {
                 return false;
             }
+
             if (blockSel == null) return false;
             var player = (byEntity as EntityPlayer)?.Player;
             if (player == null || !byEntity.Controls.Sneak) return false;
-            if (!IsTensionWrenchInOffHand(byEntity))
-            {
-                StopPicking(player, pickDataByPlayerUid[player.PlayerUID]);
-                return false;
-            }
 
             string playerUid = player.PlayerUID;
             if (!pickDataByPlayerUid.TryGetValue(playerUid, out PlayerPickData pickData) || !pickData.IsPicking)
             {
                 return false;
             }
+
+            // Check for tension wrench after retrieving pickData to avoid resetting progress unnecessarily
+            if (!IsTensionWrenchInOffHand(byEntity))
+            {
+                StopPicking(player, pickDataByPlayerUid[player.PlayerUID]);
+                return false;
+            }
+
             long elapsedTime = api.World.ElapsedMilliseconds - pickData.PickStartTime;
             float progress = Math.Min(1f, (float)elapsedTime / FlatPickDurationMs);
+
+            // Handle damage separately without affecting the picking progress
             if (elapsedTime % 2000 < 100)
             {
                 Random random = new Random();
+                bool lockpickBroke = false;
+
                 if (random.NextDouble() < Config.LockPickDamageChance)
                 {
-                    bool lockpickDestroyed = DamageItem(slot, (int)Config.LockPickDamage, byEntity);
-                    if (lockpickDestroyed)
-                    {
-                        StopPicking(player, pickData);
-                        return false;
-                    }
+                    lockpickBroke = DamageItem(slot, (int)Config.LockPickDamage, byEntity);
                 }
+
                 var offhandSlot = (byEntity as EntityAgent)?.LeftHandItemSlot;
-                if (offhandSlot?.Itemstack?.Collectible != null && random.NextDouble() < Config.LockPickDamageChance)
+                if (!lockpickBroke && offhandSlot?.Itemstack?.Collectible != null &&
+                    random.NextDouble() < Config.LockPickDamageChance)
                 {
                     DamageItem(offhandSlot, (int)Config.LockPickDamage, byEntity);
                 }
+
+                // If the item breaks during damage, we'll let the packet handler take care of stopping the process
+                // but we continue normally here so progress isn't lost
             }
 
             if (api.Side == EnumAppSide.Client)
@@ -246,35 +265,27 @@ namespace Thievery.LockpickAndTensionWrench
                 {
                     return false;
                 }
-                if (itemSlot == null)
-                {
-                    return false;
-                }
 
-                if (itemSlot.Itemstack == null)
+                if (itemSlot == null || itemSlot.Itemstack == null || itemSlot.Itemstack.Collectible == null)
                 {
                     return false;
                 }
-
-                if (itemSlot.Itemstack.Collectible == null)
+                int durability = itemSlot.Itemstack.Attributes.GetInt("durability", 0);
+                bool willBreak = durability <= damage;
+                var clientApi = api as ICoreClientAPI;
+                clientApi.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
                 {
-                    return false;
-                }
-                var originalItemstack = itemSlot.Itemstack;
-                itemSlot.Itemstack.Collectible.DamageItem(api.World, byEntity, itemSlot, damage);
-                if (itemSlot.Itemstack == null || itemSlot.Itemstack != originalItemstack)
-                {
-                    itemSlot.MarkDirty();
-                    return true;
-                }
-                itemSlot.MarkDirty();
+                    InventoryId = itemSlot.Inventory.InventoryID,
+                    SlotId = itemSlot.Inventory.GetSlotId(itemSlot),
+                    Damage = damage
+                });
+                return willBreak;
             }
             catch (Exception ex)
             {
                 api.World.Logger.Error("DamageItem: Exception during DamageItem. {0}", ex);
+                return false;
             }
-
-            return false;
         }
         public override void OnHeldInteractStop(
             float secondsUsed,

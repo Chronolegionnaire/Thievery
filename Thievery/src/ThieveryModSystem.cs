@@ -167,6 +167,8 @@ namespace Thievery
                 .RegisterMessageType<ConfigSyncPacket>()
                 .RegisterMessageType<ConfigSyncRequestPacket>()
                 .RegisterMessageType<LockPickCompletePacket>()
+                .RegisterMessageType<ItemDamagePacket>()
+                .RegisterMessageType<ItemDestroyedPacket>()
                 .SetMessageHandler<TransformMoldPacket>(OnTransformMoldRequest)
                 .SetMessageHandler<SyncKeyAttributesPacket>(OnSyncKeyAttributesPacket)
                 .SetMessageHandler<ConfigSyncRequestPacket>(OnConfigSyncRequestReceived)
@@ -177,11 +179,22 @@ namespace Thievery
                     slot.Itemstack.Attributes.SetString("keyName", packet.KeyName);
                     slot.MarkDirty();
                 })
-                .SetMessageHandler<LockPickCompletePacket>(OnLockPickCompletePacket);
+                .SetMessageHandler<LockPickCompletePacket>(OnLockPickCompletePacket)
+                .SetMessageHandler<ItemDamagePacket>(OnItemDamagePacketReceived);;
             if (api.ModLoader.IsModEnabled("carryon"))
             {
-                var carrySystem = sapi.ModLoader.GetModSystem<CarrySystem>();
-                carrySystem.CarryEvents.OnRestoreEntityBlockData += OnCarryOnRestoreBlockEntity;
+                var carrySystem = Api.ModLoader.GetModSystem("CarrySystem");
+                if (carrySystem != null)
+                {
+                    var carrySystemType = carrySystem.GetType();
+                    var eventsProperty = carrySystemType.GetProperty("CarryEvents");
+                    var carryEvents = eventsProperty?.GetValue(carrySystem);
+                    var onRestoreEvent = carryEvents?.GetType().GetEvent("OnRestoreEntityBlockData");
+                    if (onRestoreEvent != null)
+                    {
+                        onRestoreEvent.AddEventHandler(carryEvents, new Action<BlockEntity, ITreeAttribute, bool>(OnCarryOnRestoreBlockEntity));
+                    }
+                }
             }
         }
 
@@ -201,8 +214,11 @@ namespace Thievery
                 .RegisterMessageType<ConfigSyncPacket>()
                 .RegisterMessageType<ConfigSyncRequestPacket>()
                 .RegisterMessageType<LockPickCompletePacket>()
+                .RegisterMessageType<ItemDamagePacket>()
+                .RegisterMessageType<ItemDestroyedPacket>()
                 .SetMessageHandler<PickProgressPacket>(OnPickProgressReceived)
-                .SetMessageHandler<ConfigSyncPacket>(OnConfigSyncReceived);
+                .SetMessageHandler<ConfigSyncPacket>(OnConfigSyncReceived)
+                .SetMessageHandler<ItemDestroyedPacket>(OnItemDestroyedReceived);;
         }
 
         public override void AssetsFinalize(ICoreAPI Api)
@@ -360,6 +376,46 @@ namespace Thievery
             if (lockBehavior != null)
             {
                 lockBehavior.FromTreeAttributes(blockEntityData, blockEntity.Api.World);
+            }
+        }
+        private void OnItemDamagePacketReceived(IServerPlayer player, ItemDamagePacket packet)
+        {
+            var inventory = player.InventoryManager.GetInventory(packet.InventoryId);
+            if (inventory == null) return;
+            if (packet.SlotId < 0 || packet.SlotId >= inventory.Count) return;
+            var slot = inventory[packet.SlotId];
+            if (slot?.Itemstack == null) return;
+            int durability = slot.Itemstack.Attributes.GetInt("durability", 0);
+            int maxDurability = slot.Itemstack.Collectible.Attributes?["durability"]?.AsInt(0) ?? 0;
+            bool willDestroy = durability <= packet.Damage;
+            slot.Itemstack.Collectible.DamageItem(player.Entity.World, player.Entity, slot, packet.Damage);
+            if (willDestroy || slot.Itemstack == null)
+            {
+                serverChannel.SendPacket(new ItemDestroyedPacket { 
+                    PlayerUid = player.PlayerUID 
+                }, player);
+            }
+    
+            slot.MarkDirty();
+        }
+        private void OnItemDestroyedReceived(ItemDestroyedPacket packet)
+        {
+            if (_clientApi == null) return;
+            var player = _clientApi.World.Player;
+            if (player == null || player.PlayerUID != packet.PlayerUid) return;
+            var lockpickItems = _clientApi.World.Items
+                .Where(item => item is ItemLockpick)
+                .Cast<ItemLockpick>();
+    
+            foreach (var lockpickItem in lockpickItems)
+            {
+                lockpickItem.StopPickingForPlayer(player);
+            }
+    
+            if (LockpickHudElement != null)
+            {
+                LockpickHudElement.CircleVisible = false;
+                LockpickHudElement.CircleProgress = 0f;
             }
         }
     }

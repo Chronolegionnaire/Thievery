@@ -52,5 +52,6 @@
     "game:item-padlock-chromium": "Chromium Padlock",
     "game:item-padlock-cupronickel": "Cupronickel Padlock",
     "game:item-padlock-electrum": "Electrum Padlock",
-    "game:item-padlock-platinum": "Platinum Padlock"
+    "game:item-padlock-platinum": "Platinum Padlock",
+    "thievery:tool-broke": "Your lock-picking tool broke!"
 }
