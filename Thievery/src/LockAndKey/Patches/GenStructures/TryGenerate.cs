@@ -191,7 +191,8 @@ namespace Thievery.Patches
                                 }
                             }
                         }
-                        else if (config.ReinforcedBuildingBlocks && MatchesReinforcedBuildingBlock(blockCode))
+                        else if ((config.ReinforcedBuildingBlocks || config.ReinforceAllBlocks) && 
+                                 (config.ReinforceAllBlocks ? MatchesReinforcedBuildingBlockExtended(blockCode) : MatchesReinforcedBuildingBlock(blockCode)))
                         {
                             bool hasReinforcementBehavior = block.HasBehavior<BlockBehaviorReinforcable>(false);
                             if (!hasReinforcementBehavior)
@@ -282,6 +283,31 @@ namespace Thievery.Patches
                 !(code.EndsWith("-aged") || code.EndsWith("-veryaged") || code.EndsWith("-veryagedrotten")))
                 return true;
             if (code.StartsWith("game:log-placed") && !code.Contains("-aged"))
+                return true;
+
+            return false;
+        }
+        private static bool MatchesReinforcedBuildingBlockExtended(string code)
+        {
+            if (code.StartsWith("game:cobblestone"))
+                return true;
+            if (code.StartsWith("game:drystone"))
+                return true;
+            if (code.StartsWith("game:stonebrick"))
+                return true;
+            if (code.StartsWith("game:microblock"))
+                return true;
+            if (code.StartsWith("game:planks"))
+                return true;
+            if (code.StartsWith("game:polishedrock"))
+                return true;
+            if (code.StartsWith("game:debarkedlog"))
+                return true;
+            if (code.StartsWith("game:log-placed"))
+                return true;
+            if (code.StartsWith("game:cobbleskull"))
+                return true;
+            if (code.StartsWith("game:agedstonebrick"))
                 return true;
 
             return false;

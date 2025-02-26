@@ -15,24 +15,25 @@ namespace Thievery.Config
         [ProtoMember(7)] public int StructureMinReinforcement { get; set; }
         [ProtoMember(8)] public int StructureMaxReinforcement { get; set; }
         [ProtoMember(9, IsRequired = true)] public bool ReinforcedBuildingBlocks { get; set; }
-        [ProtoMember(10)] public float BlackBronzePadlockPickDurationSeconds { get; set; }
-        [ProtoMember(11)] public float BismuthBronzePadlockPickDurationSeconds { get; set; }
-        [ProtoMember(12)] public float TinBronzePadlockPickDurationSeconds { get; set; }
-        [ProtoMember(13)] public float IronPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(14)] public float MeteoricIronPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(15)] public float SteelPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(16)] public float CopperPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(17)] public float NickelPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(18)] public float SilverPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(19)] public float GoldPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(20)] public float TitaniumPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(21)] public float LeadPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(22)] public float ZincPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(23)] public float TinPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(24)] public float ChromiumPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(25)] public float CupronickelPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(26)] public float ElectrumPadlockPickDurationSeconds { get; set; }
-        [ProtoMember(27)] public float PlatinumPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(10, IsRequired = true)] public bool ReinforceAllBlocks { get; set; }
+        [ProtoMember(11)] public float BlackBronzePadlockPickDurationSeconds { get; set; }
+        [ProtoMember(12)] public float BismuthBronzePadlockPickDurationSeconds { get; set; }
+        [ProtoMember(13)] public float TinBronzePadlockPickDurationSeconds { get; set; }
+        [ProtoMember(14)] public float IronPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(15)] public float MeteoricIronPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(16)] public float SteelPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(17)] public float CopperPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(18)] public float NickelPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(19)] public float SilverPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(20)] public float GoldPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(21)] public float TitaniumPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(22)] public float LeadPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(23)] public float ZincPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(24)] public float TinPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(25)] public float ChromiumPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(26)] public float CupronickelPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(27)] public float ElectrumPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(28)] public float PlatinumPadlockPickDurationSeconds { get; set; }
 
         public Config()
         {
@@ -45,6 +46,7 @@ namespace Thievery.Config
             StructureMinReinforcement = 50;
             StructureMaxReinforcement = 100;
             ReinforcedBuildingBlocks = false;
+            ReinforceAllBlocks = false;
             BlackBronzePadlockPickDurationSeconds = 20;
             BismuthBronzePadlockPickDurationSeconds = 24;
             TinBronzePadlockPickDurationSeconds = 28;
@@ -76,6 +78,7 @@ namespace Thievery.Config
             StructureMinReinforcement = previousConfig?.StructureMinReinforcement ?? 50;
             StructureMaxReinforcement = previousConfig?.StructureMaxReinforcement ?? 100;
             ReinforcedBuildingBlocks = previousConfig?.ReinforcedBuildingBlocks ?? false;
+            ReinforceAllBlocks = previousConfig?.ReinforceAllBlocks ?? false;
             BlackBronzePadlockPickDurationSeconds = previousConfig?.BlackBronzePadlockPickDurationSeconds ?? 20;
             BismuthBronzePadlockPickDurationSeconds = previousConfig?.BismuthBronzePadlockPickDurationSeconds ?? 24;
             TinBronzePadlockPickDurationSeconds = previousConfig?.TinBronzePadlockPickDurationSeconds ?? 28;

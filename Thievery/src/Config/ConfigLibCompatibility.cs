@@ -16,6 +16,7 @@ namespace Thievery.Config
         private const string settingStructureMinReinforcement = "thievery:Config.Setting.StructureMinReinforcement";
         private const string settingStructureMaxReinforcement = "thievery:Config.Setting.StructureMaxReinforcement";
         private const string settingReinforcedBuildingBlocks = "thievery:Config.Setting.ReinforcedBuildingBlocks";
+        private const string settingReinforceAllBlocks = "thievery:Config.Setting.ReinforceAllBlocks";
         private const string settingBlackBronzePickDuration = "thievery:Config.Setting.BlackBronzePadlockPickDuration";
         private const string settingBismuthBronzePickDuration = "thievery:Config.Setting.BismuthBronzePadlockPickDuration";
         private const string settingTinBronzePickDuration = "thievery:Config.Setting.TinBronzePadlockPickDuration";
@@ -99,6 +100,10 @@ namespace Thievery.Config
             bool reinforcedBuildingBlocks = config.ReinforcedBuildingBlocks;
             ImGui.Checkbox(Lang.Get(settingReinforcedBuildingBlocks) + $"##reinforcedBuildingBlocks-{id}", ref reinforcedBuildingBlocks);
             config.ReinforcedBuildingBlocks = reinforcedBuildingBlocks;
+            
+            bool reinforceAllBlocks = config.ReinforceAllBlocks;
+            ImGui.Checkbox(Lang.Get(settingReinforceAllBlocks) + $"##reinforceAllBlocks-{id}", ref reinforceAllBlocks);
+            config.ReinforceAllBlocks = reinforceAllBlocks;
             
             float structureLockChance = config.StructureLockChance;
             ImGui.DragFloat(Lang.Get(settingStructureLockChance) + $"##structureLockChance-{id}", ref structureLockChance, 0.01f, 0.0f, 1.0f);
