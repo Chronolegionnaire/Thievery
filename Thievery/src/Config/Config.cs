@@ -70,7 +70,7 @@ namespace Thievery.Config
             PlatinumPadlockPickDurationSeconds = 360;
             AgedKeyDamageChance = 0.75f;
             AgedKeyDamage = 20;
-            StructureKeyChance = 0.1;
+            StructureKeyChance = 0.03;
         }
 
         public Config(ICoreAPI api, Config previousConfig = null)
@@ -105,7 +105,7 @@ namespace Thievery.Config
             PlatinumPadlockPickDurationSeconds = previousConfig?.PlatinumPadlockPickDurationSeconds ?? 360;
             AgedKeyDamageChance = previousConfig?.AgedKeyDamageChance ?? 0.75f;
             AgedKeyDamage = previousConfig?.AgedKeyDamage ?? 20;
-            StructureKeyChance = previousConfig?.StructureKeyChance ?? 0.1;
+            StructureKeyChance = previousConfig?.StructureKeyChance ?? 0.03;
         }
     }
 }

@@ -35,6 +35,9 @@ namespace Thievery.Config
         private const string settingElectrumPickDuration = "thievery:Config.Setting.ElectrumPadlockPickDuration";
         private const string settingGoldPickDuration = "thievery:Config.Setting.GoldPadlockPickDuration";
         private const string settingPlatinumPickDuration = "thievery:Config.Setting.PlatinumPadlockPickDuration";
+        private const string settingAgedKeyDamageChance = "thievery:Config.Setting.AgedKeyDamageChance";
+        private const string settingAgedKeyDamage = "thievery:Config.Setting.AgedKeyDamage";
+        private const string settingStructureKeyChance = "thievery:Config.Setting.StructureKeyChance";
         public ConfigLibCompatibility(ICoreClientAPI api)
         {
             if (!api.ModLoader.IsModEnabled("configlib"))
@@ -65,8 +68,7 @@ namespace Thievery.Config
         private void Edit(ICoreClientAPI api, Config config, string id)
         {
             ImGui.TextWrapped("Thievery Settings");
-
-            // Lock Picking Settings
+            
             ImGui.SeparatorText("Lock Picking Settings");
 
             bool lockPicking = config.LockPicking;
@@ -180,6 +182,20 @@ namespace Thievery.Config
             float platinumDurationSeconds = config.PlatinumPadlockPickDurationSeconds;
             ImGui.DragFloat(Lang.Get(settingPlatinumPickDuration) + $"##platinumDuration-{id}", ref platinumDurationSeconds, 1.0f, 1.0f, 400.0f);
             config.PlatinumPadlockPickDurationSeconds = platinumDurationSeconds;
+            
+            ImGui.SeparatorText("Key Generation Settings");
+
+            float agedKeyDamageChance = config.AgedKeyDamageChance;
+            ImGui.DragFloat(Lang.Get(settingAgedKeyDamageChance) + $"##agedKeyDamageChance-{id}", ref agedKeyDamageChance, 0.01f, 0.0f, 1.0f);
+            config.AgedKeyDamageChance = agedKeyDamageChance;
+
+            int agedKeyDamage = config.AgedKeyDamage;
+            ImGui.DragInt(Lang.Get(settingAgedKeyDamage) + $"##agedKeyDamage-{id}", ref agedKeyDamage, 1, 0, 100);
+            config.AgedKeyDamage = agedKeyDamage;
+
+            float structureKeyChance = (float)config.StructureKeyChance;
+            ImGui.DragFloat(Lang.Get(settingStructureKeyChance) + $"##structureKeyChance-{id}", ref structureKeyChance, 0.01f, 0.0f, 1.0f);
+            config.StructureKeyChance = structureKeyChance;
         }
     }
 }
