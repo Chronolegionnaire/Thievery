@@ -34,6 +34,9 @@ namespace Thievery.Config
         [ProtoMember(26)] public float CupronickelPadlockPickDurationSeconds { get; set; }
         [ProtoMember(27)] public float ElectrumPadlockPickDurationSeconds { get; set; }
         [ProtoMember(28)] public float PlatinumPadlockPickDurationSeconds { get; set; }
+        [ProtoMember(29)] public float AgedKeyDamageChance { get; set; }
+        [ProtoMember(30)] public int AgedKeyDamage { get; set; }
+        [ProtoMember(31)] public double StructureKeyChance { get; set; }
 
         public Config()
         {
@@ -65,6 +68,9 @@ namespace Thievery.Config
             ElectrumPadlockPickDurationSeconds = 270;
             GoldPadlockPickDurationSeconds = 300;
             PlatinumPadlockPickDurationSeconds = 360;
+            AgedKeyDamageChance = 0.75f;
+            AgedKeyDamage = 20;
+            StructureKeyChance = 0.1;
         }
 
         public Config(ICoreAPI api, Config previousConfig = null)
@@ -97,6 +103,9 @@ namespace Thievery.Config
             ElectrumPadlockPickDurationSeconds = previousConfig?.ElectrumPadlockPickDurationSeconds ?? 270;
             GoldPadlockPickDurationSeconds = previousConfig?.GoldPadlockPickDurationSeconds ?? 300;
             PlatinumPadlockPickDurationSeconds = previousConfig?.PlatinumPadlockPickDurationSeconds ?? 360;
+            AgedKeyDamageChance = previousConfig?.AgedKeyDamageChance ?? 0.75f;
+            AgedKeyDamage = previousConfig?.AgedKeyDamage ?? 20;
+            StructureKeyChance = previousConfig?.StructureKeyChance ?? 0.1;
         }
     }
 }

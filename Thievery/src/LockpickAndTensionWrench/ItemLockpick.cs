@@ -206,7 +206,6 @@ namespace Thievery.LockpickAndTensionWrench
                 return false;
             }
 
-            // Check for tension wrench after retrieving pickData to avoid resetting progress unnecessarily
             if (!IsTensionWrenchInOffHand(byEntity))
             {
                 StopPicking(player, pickDataByPlayerUid[player.PlayerUID]);
@@ -216,7 +215,6 @@ namespace Thievery.LockpickAndTensionWrench
             long elapsedTime = api.World.ElapsedMilliseconds - pickData.PickStartTime;
             float progress = Math.Min(1f, (float)elapsedTime / FlatPickDurationMs);
 
-            // Handle damage separately without affecting the picking progress
             if (elapsedTime % 2000 < 100)
             {
                 Random random = new Random();
@@ -234,8 +232,6 @@ namespace Thievery.LockpickAndTensionWrench
                     DamageItem(offhandSlot, (int)Config.LockPickDamage, byEntity);
                 }
 
-                // If the item breaks during damage, we'll let the packet handler take care of stopping the process
-                // but we continue normally here so progress isn't lost
             }
 
             if (api.Side == EnumAppSide.Client)

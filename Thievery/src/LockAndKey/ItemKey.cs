@@ -1,4 +1,5 @@
 ﻿using System;
+using Thievery.LockpickAndTensionWrench;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -129,6 +130,29 @@ namespace Thievery.LockAndKey
             }
             else
             {
+                if (slot.Itemstack.Collectible.Code.Path == "key-aged")
+                {
+                    int durability = slot.Itemstack.Attributes.GetInt("durability", 0);
+                    Random rnd = new Random();
+                    if (rnd.NextDouble() < ThieveryModSystem.LoadedConfig.AgedKeyDamageChance)
+                    {
+                        bool keyBroken = DamageItem(slot, ThieveryModSystem.LoadedConfig.AgedKeyDamage, byEntity);
+                        if (keyBroken)
+                        {
+                            if (byEntity.World.Api.Side == EnumAppSide.Client)
+                            {
+                                (byEntity.World.Api as ICoreClientAPI).Network.GetChannel("thievery")
+                                    .SendPacket(new ItemDamagePacket
+                                    {
+                                        InventoryId = slot.Inventory.InventoryID,
+                                        SlotId = slot.Inventory.GetSlotId(slot),
+                                        Damage = durability
+                                    });
+                            }
+                        }
+                    }
+                }
+
                 if (keyUid == blockLockUid)
                 {
                     bool newLockState = lockManager.ToggleLock(pos);
@@ -213,6 +237,38 @@ namespace Thievery.LockAndKey
                 32f,
                 1f
             );
+        }
+
+        private bool DamageItem(ItemSlot itemSlot, int damage, EntityAgent byEntity)
+        {
+            try
+            {
+                if (api.Side != EnumAppSide.Client)
+                {
+                    return false;
+                }
+
+                if (itemSlot == null || itemSlot.Itemstack == null || itemSlot.Itemstack.Collectible == null)
+                {
+                    return false;
+                }
+
+                int durability = itemSlot.Itemstack.Attributes.GetInt("durability", 0);
+                bool willBreak = durability <= damage;
+                var clientApi = api as ICoreClientAPI;
+                clientApi.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
+                {
+                    InventoryId = itemSlot.Inventory.InventoryID,
+                    SlotId = itemSlot.Inventory.GetSlotId(itemSlot),
+                    Damage = damage
+                });
+                return willBreak;
+            }
+            catch (Exception ex)
+            {
+                api.World.Logger.Error("DamageItem: Exception during DamageItem. {0}", ex);
+                return false;
+            }
         }
     }
 }
