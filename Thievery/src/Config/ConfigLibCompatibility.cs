@@ -38,6 +38,8 @@ namespace Thievery.Config
         private const string settingAgedKeyDamageChance = "thievery:Config.Setting.AgedKeyDamageChance";
         private const string settingAgedKeyDamage = "thievery:Config.Setting.AgedKeyDamage";
         private const string settingStructureKeyChance = "thievery:Config.Setting.StructureKeyChance";
+        private const string settingLockToolDamage = "thievery:Config.Setting.settingLockToolDamage";
+
         public ConfigLibCompatibility(ICoreClientAPI api)
         {
             if (!api.ModLoader.IsModEnabled("configlib"))
@@ -196,6 +198,10 @@ namespace Thievery.Config
             float structureKeyChance = (float)config.StructureKeyChance;
             ImGui.DragFloat(Lang.Get(settingStructureKeyChance) + $"##structureKeyChance-{id}", ref structureKeyChance, 0.01f, 0.0f, 1.0f);
             config.StructureKeyChance = structureKeyChance;
+            
+            int lockToolDamage = config.LockToolDamage;
+            ImGui.DragInt(Lang.Get(settingLockToolDamage) + $"##lockToolDamage-{id}", ref lockToolDamage, 1, 0, 100);
+            config.LockToolDamage = lockToolDamage;
         }
     }
 }

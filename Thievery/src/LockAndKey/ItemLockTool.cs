@@ -54,7 +54,7 @@ namespace Thievery.LockAndKey
                 lockData.LockUid = toolLockUid;
                 lockManager.SetLock(pos, toolLockUid, lockData.IsLocked);
                 PlayLockSound(api, pos);
-                DamageItem(slot, 50, byEntity);
+                DamageItem(slot, ThieveryModSystem.LoadedConfig.LockToolDamage, byEntity);
                 slot.Itemstack.Attributes.SetString(LOCKTOOL_ATTR, "");
                 handling = EnumHandHandling.PreventDefault;
             }
