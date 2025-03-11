@@ -1,4 +1,5 @@
-﻿using HarmonyLib;
+﻿using System;
+using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 
@@ -33,6 +34,11 @@ namespace Thievery.LockAndKey.Patches.BlockBehaviorLockable
 
             if (lockData?.IsLocked == true)
             {
+                if (ThieveryModSystem.LoadedConfig.OwnerExempt && lockManager.IsPlayerAuthorized(pos, byPlayer))
+                {
+                    return true;
+                }
+
                 if (world.Side == EnumAppSide.Client)
                 {
                     var capi = world.Api as ICoreClientAPI;

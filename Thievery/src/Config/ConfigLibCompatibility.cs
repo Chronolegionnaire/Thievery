@@ -39,6 +39,7 @@ namespace Thievery.Config
         private const string settingAgedKeyDamage = "thievery:Config.Setting.AgedKeyDamage";
         private const string settingStructureKeyChance = "thievery:Config.Setting.StructureKeyChance";
         private const string settingLockToolDamage = "thievery:Config.Setting.settingLockToolDamage";
+        private const string settingOwnerExempt = "thievery:Config.Setting.settingOwnerExempt";
 
         public ConfigLibCompatibility(ICoreClientAPI api)
         {
@@ -202,6 +203,10 @@ namespace Thievery.Config
             int lockToolDamage = config.LockToolDamage;
             ImGui.DragInt(Lang.Get(settingLockToolDamage) + $"##lockToolDamage-{id}", ref lockToolDamage, 1, 0, 100);
             config.LockToolDamage = lockToolDamage;
+            
+            bool ownerExempt = config.OwnerExempt;
+            ImGui.Checkbox(Lang.Get(settingOwnerExempt) + $"##ownerExempt-{id}", ref ownerExempt);
+            config.OwnerExempt = ownerExempt;
         }
     }
 }

@@ -37,7 +37,8 @@ namespace Thievery.Config
         [ProtoMember(29)] public float AgedKeyDamageChance { get; set; }
         [ProtoMember(30)] public int AgedKeyDamage { get; set; }
         [ProtoMember(31)] public double StructureKeyChance { get; set; }
-        [ProtoMember(30)] public int LockToolDamage { get; set; }
+        [ProtoMember(32)] public int LockToolDamage { get; set; }
+        [ProtoMember(33, IsRequired = true)] public bool OwnerExempt { get; set; }
 
 
         public Config()
@@ -74,6 +75,7 @@ namespace Thievery.Config
             AgedKeyDamage = 20;
             StructureKeyChance = 0.03;
             LockToolDamage = 50;
+            OwnerExempt = false;
         }
 
         public Config(ICoreAPI api, Config previousConfig = null)
@@ -110,7 +112,7 @@ namespace Thievery.Config
             AgedKeyDamage = previousConfig?.AgedKeyDamage ?? 20;
             StructureKeyChance = previousConfig?.StructureKeyChance ?? 0.03;
             LockToolDamage = previousConfig?.LockToolDamage ?? 50;
-
+            OwnerExempt = previousConfig?.OwnerExempt ?? false;
         }
     }
 }

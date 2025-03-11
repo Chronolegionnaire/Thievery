@@ -18,7 +18,10 @@ namespace Thievery.LockAndKey.Patches.ModSystemBlockReinforcement
                 __result = false;
                 return false;
             }
-
+            if (ThieveryModSystem.LoadedConfig.OwnerExempt && lockManager.IsPlayerAuthorized(pos, forPlayer))
+            {
+                return true;
+            }
             var lockData = lockManager.GetLockData(pos);
             var heldItem = forPlayer.InventoryManager.ActiveHotbarSlot?.Itemstack?.Collectible;
             if ((heldItem?.Code?.Path?.StartsWith("lockpick-") == true) || 
