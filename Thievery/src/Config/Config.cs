@@ -39,6 +39,7 @@ namespace Thievery.Config
         [ProtoMember(31)] public double StructureKeyChance { get; set; }
         [ProtoMember(32)] public int LockToolDamage { get; set; }
         [ProtoMember(33, IsRequired = true)] public bool OwnerExempt { get; set; }
+        [ProtoMember(34, IsRequired = true)] public bool LockpickingMinigame { get; set; }
 
 
         public Config()
@@ -76,6 +77,7 @@ namespace Thievery.Config
             StructureKeyChance = 0.03;
             LockToolDamage = 50;
             OwnerExempt = false;
+            LockpickingMinigame = true;
         }
 
         public Config(ICoreAPI api, Config previousConfig = null)
@@ -113,6 +115,7 @@ namespace Thievery.Config
             StructureKeyChance = previousConfig?.StructureKeyChance ?? 0.03;
             LockToolDamage = previousConfig?.LockToolDamage ?? 50;
             OwnerExempt = previousConfig?.OwnerExempt ?? false;
+            LockpickingMinigame = previousConfig?.LockpickingMinigame ?? true;
         }
     }
 }
