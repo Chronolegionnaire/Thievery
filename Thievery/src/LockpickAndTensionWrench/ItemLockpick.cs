@@ -104,30 +104,108 @@ namespace Thievery.LockpickAndTensionWrench
             if (player == null) return;
 
             if (!byEntity.Controls.Sneak) return;
+
+            if (api.Side == EnumAppSide.Client)
+            {
+                var capi = api as ICoreClientAPI;
+                if (capi != null)
+                {
+                    bool lockpickingDialogOpen = false;
+                    foreach (var gui in capi.Gui.OpenedGuis)
+                    {
+                        if (gui is GuiLockpickingMinigame)
+                        {
+                            lockpickingDialogOpen = true;
+                            break;
+                        }
+                    }
+
+                    if (lockpickingDialogOpen)
+                    {
+                        capi.TriggerIngameError("thieverymod-dialog", "dialogalreadyopen",
+                            "Close the currently opened lockpicking dialog first!");
+                        handling = EnumHandHandling.PreventDefault;
+                        return;
+                    }
+                }
+            }
+            
             CharacterSystem characterSystem = api.ModLoader.GetModSystem<CharacterSystem>();
             if (Config.RequiresPilferer && !characterSystem.HasTrait(player, "pilferer") &&
                 Config.RequiresTinkerer && !characterSystem.HasTrait(player, "tinkerer"))
             {
-                var capi = api as ICoreClientAPI;
-                capi?.TriggerIngameError("thieverymod-traitcheck", "missingtrait",
+                (api as ICoreClientAPI)?.TriggerIngameError("thieverymod-traitcheck", "missingtrait",
                     "You do not know how to use a lockpick!");
+                handling = EnumHandHandling.PreventDefault;
                 return;
             }
 
             if (!IsTensionWrenchInOffHand(byEntity))
             {
-                var capi = api as ICoreClientAPI;
-                capi?.TriggerIngameError("thieverymod-tensionwrench", "notensionwrench",
+                (api as ICoreClientAPI)?.TriggerIngameError("thieverymod-tensionwrench", "notensionwrench",
                     "You need a tension wrench in your off-hand to use the lockpick!");
+                handling = EnumHandHandling.PreventDefault;
                 return;
             }
 
             var lockData = lockManager.GetLockData(blockSel.Position);
             if (lockData == null || !lockData.IsLocked)
             {
-                var capi = api as ICoreClientAPI;
-                capi?.TriggerIngameError("thieverymod-lockable", "nolock",
+                (api as ICoreClientAPI)?.TriggerIngameError("thieverymod-lockable", "nolock",
                     "This block is not lockable or is already unlocked!");
+                handling = EnumHandHandling.PreventDefault;
+                return;
+            }
+
+            if (Config.LockpickingMinigame)
+            {
+                FlatPickDurationMs = GetPickDuration(lockData.LockType);
+                if (api.Side == EnumAppSide.Client)
+                {
+                    ICoreClientAPI capi = api as ICoreClientAPI;
+                    ILoadedSound lockpickingSound = capi.World.LoadSound(new SoundParams()
+                    {
+                        Location = new AssetLocation("thievery", "sounds/lockpicking"),
+                        Position = new Vec3f(
+                            (float)(blockSel.Position.X + 0.5),
+                            (float)(blockSel.Position.Y + 0.5),
+                            (float)(blockSel.Position.Z + 0.5)
+                        ),
+                        DisposeOnFinish = false,
+                        Pitch = 1.0f,
+                        Volume = 1.0f,
+                        Range = 16f,
+                        ShouldLoop = true
+                    });
+                    lockpickingSound?.Start();
+                    var minigameDialog = new GuiLockpickingMinigame(
+                        "Lockpicking", 
+                        blockSel.Position, 
+                        capi, 
+                        FlatPickDurationMs, 
+                        lockData.LockType
+                    );
+                    byEntity.Controls.RightMouseDown = false;
+                    capi.Input.MouseWorldInteractAnyway = true;
+                    minigameDialog.OnComplete += () =>
+                    {
+                        capi.Network.GetChannel("thievery").SendPacket(new LockPickCompletePacket
+                        {
+                            BlockPos = blockSel.Position,
+                            LockUid = lockData.LockUid
+                        });
+                    };
+                    minigameDialog.OnClosed += () =>
+                    {
+                        lockpickingSound.Stop();
+                        lockpickingSound.Dispose();
+                        capi.Input.MouseWorldInteractAnyway = false;
+                    };
+
+                    minigameDialog.TryOpen();
+                }
+
+                handling = EnumHandHandling.PreventDefault;
                 return;
             }
 
@@ -141,9 +219,10 @@ namespace Thievery.LockpickAndTensionWrench
 
             pickData.IsPicking = true;
             pickData.PickStartTime = api.World.ElapsedMilliseconds;
+
             if (api.Side == EnumAppSide.Client)
             {
-                ICoreClientAPI capi = api as ICoreClientAPI;
+                ICoreClientAPI capiClient = api as ICoreClientAPI;
                 if (pickData.LockpickingSound != null)
                 {
                     pickData.LockpickingSound.Stop();
@@ -151,7 +230,7 @@ namespace Thievery.LockpickAndTensionWrench
                     pickData.LockpickingSound = null;
                 }
 
-                pickData.LockpickingSound = capi.World.LoadSound(new SoundParams()
+                pickData.LockpickingSound = capiClient.World.LoadSound(new SoundParams()
                 {
                     Location = new AssetLocation("thievery", "sounds/lockpicking"),
                     Position = new Vec3f(
@@ -168,6 +247,7 @@ namespace Thievery.LockpickAndTensionWrench
 
                 pickData.LockpickingSound?.Start();
             }
+
             if (api.Side == EnumAppSide.Server)
             {
                 api.World.PlaySoundAt(
@@ -176,8 +256,8 @@ namespace Thievery.LockpickAndTensionWrench
                     0.5,
                     player,
                     true,
-                    16f, 
-                    1f 
+                    16f,
+                    1f
                 );
             }
 
