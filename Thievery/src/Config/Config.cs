@@ -1,4 +1,5 @@
-﻿using ProtoBuf;
+﻿using System.Collections.Generic;
+using ProtoBuf;
 using Vintagestory.API.Common;
 
 namespace Thievery.Config
@@ -40,8 +41,51 @@ namespace Thievery.Config
         [ProtoMember(32)] public int LockToolDamage { get; set; }
         [ProtoMember(33, IsRequired = true)] public bool OwnerExempt { get; set; }
         [ProtoMember(34, IsRequired = true)] public bool LockpickingMinigame { get; set; }
+        [ProtoMember(35)]
+        public List<string> StructureBlacklist { get; set; }
 
+        private static List<string> GetDefaultBlacklist() => new List<string>
+        {
+            "tradercavaran:large-1.json",
+            "tradercavaran:large-2.json",
+            "tradercavaran:luxury-1.json",
+            "tradercavaran:small-1.json",
+            "tradercavaran:small-2.json",
+            "tradercavaran:small-3.json",
+            "tradercavaran:small-4.json",
 
+            "tradercavaranwagon:large-1.json",
+            "tradercavaranwagon:large-2.json",
+            "tradercavaranwagon:large-3.json",
+            "tradercavaranwagon:large-4.json",
+            "tradercavaranwagon:large-5.json",
+            "tradercavaranwagon:large-6.json",
+            "tradercavaranwagon:luxury-1.json",
+            "tradercavaranwagon:small-1.json",
+            "tradercavaranwagon:small-2.json",
+            "tradercavaranwagon:small-3.json",
+            "tradercavaranwagon:small-4.json",
+            "tradercavaranwagon:small-5.json",
+            "tradercavaranwagon:small-6.json",
+            "tradercavaranwagon:small-7.json",
+            "tradercavaranwagon:small-8.json",
+            "tradercavaranwagon:small-9.json",
+            "tradercavaranwagon:small-10.json",
+            "tradercavaranwagon:small-11.json",
+            "tradercavaranwagon:small-12.json",
+            "tradercavaranwagon:small-13.json",
+            "tradercavaranwagon:small-14.json",
+            "tradercavaranwagon:small-15.json",
+            "tradercavaranwagon:small-16.json",
+
+            "tradersettlement:large-1.json",
+            "tradersettlement:large-2.json",
+            "tradersettlement:medium-1.json",
+            "tradersettlement:medium-2.json",
+            "tradersettlement:medium-3.json",
+            "tradersettlement:small-1.json",
+            "tradersettlement:small-2.json"
+        };
         public Config()
         {
             LockPicking = true;
@@ -77,7 +121,8 @@ namespace Thievery.Config
             StructureKeyChance = 0.03;
             LockToolDamage = 50;
             OwnerExempt = false;
-            LockpickingMinigame = true;
+            LockpickingMinigame = false;
+            StructureBlacklist = GetDefaultBlacklist();
         }
 
         public Config(ICoreAPI api, Config previousConfig = null)
@@ -115,7 +160,8 @@ namespace Thievery.Config
             StructureKeyChance = previousConfig?.StructureKeyChance ?? 0.03;
             LockToolDamage = previousConfig?.LockToolDamage ?? 50;
             OwnerExempt = previousConfig?.OwnerExempt ?? false;
-            LockpickingMinigame = previousConfig?.LockpickingMinigame ?? true;
+            LockpickingMinigame = previousConfig?.LockpickingMinigame ?? false;
+            StructureBlacklist = previousConfig?.StructureBlacklist ?? GetDefaultBlacklist();
         }
     }
 }

@@ -5,6 +5,8 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 using System.Collections.Generic;
+using System.IO;
+using Thievery.LockpickAndTensionWrench;
 
 public class GuiLockpickingMinigame : GuiDialogBlockEntity
 {
@@ -49,6 +51,12 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
     private const long rightClickDelay = 200;
     private const int MaxBoxesPerRow = 4;
     private string lockType;
+    private (double, double)[] tumblerCropOffsets;
+    private float tensionWrenchDamageTimer = 0f;
+    private float lockpickDamageTimer = 0f;
+    private float damageThreshold = 0.5f;
+    private bool spacebarHeld = false;
+    private float spaceHeldTimer = 0f;
     private Dictionary<string, Color> metalColorMapping = new Dictionary<string, Color>
     {
         { "blackbronze", new Color(0.18, 0.12, 0.13) },
@@ -70,6 +78,7 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
         { "electrum", new Color(0.9, 0.8, 0.6) },
         { "platinum", new Color(0.9, 0.9, 1.0) }
     };
+    private ImageSurface lockTextureSurface;
     private Color GetLockColor()
     {
         string metal = lockType.Replace("padlock-", "");
@@ -177,6 +186,28 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
         capi.Input.InWorldAction += OnSneakAction;
         updateCallbackId = capi.Event.RegisterCallback(Update, 16);
         capi.World.Player.Entity.Controls.Sneak = true;
+        string metal = lockType.Replace("padlock-", "");
+        AssetLocation texLoc = new AssetLocation("game", $"textures/block/metal/ingot/{metal}.png");
+        IAsset asset = capi.Assets.TryGet(texLoc);
+        if (asset != null && asset.Data != null)
+        {
+            string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"{texLoc.Domain}_{texLoc.Path.Replace("/", "_")}.png");
+            File.WriteAllBytes(tempFile, asset.Data);
+            lockTextureSurface = new Cairo.ImageSurface(tempFile);
+            tumblerCropOffsets = new (double, double)[numBoxes];
+            Random rnd = new Random();
+            double textureWidth = lockTextureSurface.Width;
+            double textureHeight = lockTextureSurface.Height;
+            double cropSize = 16.0;
+            double maxOffsetX = textureWidth - cropSize;
+            double maxOffsetY = textureHeight - cropSize;
+            for (int i = 0; i < numBoxes; i++)
+            {
+                double offsetX = rnd.NextDouble() * maxOffsetX;
+                double offsetY = rnd.NextDouble() * maxOffsetY;
+                tumblerCropOffsets[i] = (offsetX, offsetY);
+            }
+        }
     }
 
     private void OnSneakAction(EnumEntityAction action, bool on, ref EnumHandling handled)
@@ -215,48 +246,78 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
     public override void OnKeyDown(KeyEvent args)
     {
         int key = args.KeyCode;
-        if (key == (int)GlKeys.W || key == (int)GlKeys.Up ||
-            key == (int)GlKeys.S || key == (int)GlKeys.Down)
+        if (key == (int)GlKeys.A || key == (int)GlKeys.Left ||
+            key == (int)GlKeys.D || key == (int)GlKeys.Right)
         {
-            args.Handled = true;
-            return;
+            DamageTensionWrench();
+            float nudgeAmount = 0.1f * keyPressSpeedMultiplier;
+            float halfWidth = hotspotWidth / 2;
+            if (key == (int)GlKeys.A || key == (int)GlKeys.Left)
+            {
+                hotspotTargetCenter -= nudgeAmount;
+                userInputActive = true;
+                args.Handled = true;
+            }
+            else if (key == (int)GlKeys.D || key == (int)GlKeys.Right)
+            {
+                hotspotTargetCenter += nudgeAmount;
+                userInputActive = true;
+                args.Handled = true;
+            }
+            hotspotTargetCenter = GameMath.Clamp(hotspotTargetCenter, halfWidth, 1f - halfWidth);
         }
-        float nudgeAmount = 0.1f * keyPressSpeedMultiplier;
-        float halfWidth = hotspotWidth / 2;
-
-        if (key == (int)GlKeys.A || key == (int)GlKeys.Left)
+        if (key == (int)GlKeys.Space)
         {
-            hotspotTargetCenter -= nudgeAmount;
-            userInputActive = true;
+            spacebarHeld = true;
+            hotspotTargetCenter = hotspotLogicalCenter;
             args.Handled = true;
         }
-        else if (key == (int)GlKeys.D || key == (int)GlKeys.Right)
-        {
-            hotspotTargetCenter += nudgeAmount;
-            userInputActive = true;
-            args.Handled = true;
-        }
-
-        hotspotTargetCenter = GameMath.Clamp(hotspotTargetCenter, halfWidth, 1f - halfWidth);
         base.OnKeyDown(args);
+    }
+    private void DamageTensionWrench()
+    {
+        ICoreClientAPI client = capi;
+        EntityAgent entityAgent = client.World.Player.Entity as EntityAgent;
+        if (entityAgent == null) return;
+
+        var offhandSlot = entityAgent.LeftHandItemSlot;
+        if (offhandSlot != null && offhandSlot.Itemstack != null)
+        {
+            string itemCode = offhandSlot.Itemstack.Collectible.Code.Path;
+            if (itemCode.StartsWith("tensionwrench-"))
+            {
+                int damageAmount = 5;
+                client.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
+                {
+                    InventoryId = offhandSlot.Inventory.InventoryID,
+                    SlotId = offhandSlot.Inventory.GetSlotId(offhandSlot),
+                    Damage = damageAmount
+                });
+            }
+        }
     }
 
     public override void OnKeyUp(KeyEvent args)
     {
+        if (args.KeyCode == (int)GlKeys.Space)
+        {
+            spacebarHeld = false;
+            args.Handled = true;
+        }
         userInputActive = false;
         base.OnKeyUp(args);
     }
-
     public override void OnMouseDown(MouseEvent args)
     {
-        var customDraw = SingleComposer.GetCustomDraw("minigameDraw");
         if (args.Button != EnumMouseButton.Left)
             return;
-        if (customDraw != null)
+        var customDraw = SingleComposer.GetCustomDraw("minigameDraw");
+        if (args.Button == EnumMouseButton.Left && customDraw != null)
         {
             ElementBounds bounds = customDraw.Bounds;
             double localX = args.X - bounds.absX;
             double localY = args.Y - bounds.absY;
+            DamageLockpick();
 
             double boxSize = 40;
             double rowGap = 10;
@@ -297,9 +358,28 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
                     }
                 }
             }
-            args.Handled = selectedBoxIndex.HasValue;
         }
+        args.Handled = selectedBoxIndex.HasValue;
         base.OnMouseDown(args);
+    }
+    private void DamageLockpick()
+    {
+        ICoreClientAPI client = capi;
+        var activeSlot = client.World.Player.InventoryManager.ActiveHotbarSlot;
+        if (activeSlot != null && activeSlot.Itemstack != null)
+        {
+            string itemCode = activeSlot.Itemstack.Collectible.Code.Path;
+            if (itemCode.StartsWith("lockpick-"))
+            {
+                int damageAmount = 20;
+                client.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
+                {
+                    InventoryId = activeSlot.Inventory.InventoryID,
+                    SlotId = activeSlot.Inventory.GetSlotId(activeSlot),
+                    Damage = damageAmount
+                });
+            }
+        }
     }
 
     public override void OnMouseUp(MouseEvent args)
@@ -321,6 +401,36 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
         if (capi.World.Player != null)
         {
             capi.World.Player.Entity.Controls.Sneak = true;
+            CheckForRequiredItems();
+        }
+        if (userInputActive)
+        {
+            tensionWrenchDamageTimer += dt;
+            if (tensionWrenchDamageTimer >= damageThreshold)
+            {
+                DamageTensionWrench();
+                tensionWrenchDamageTimer = 0f;
+            }
+        }
+        else
+        {
+            tensionWrenchDamageTimer = 0f;
+        }
+        bool damagingLockpick = isMouseDown || spacebarHeld;
+        if (damagingLockpick)
+        {
+            float currentThreshold = spacebarHeld ? damageThreshold * 0.5f : damageThreshold;
+            lockpickDamageTimer += dt;
+            if (lockpickDamageTimer >= currentThreshold)
+            {
+                DamageTensionWrench();
+                DamageLockpick();
+                lockpickDamageTimer = 0f;
+            }
+        }
+        else
+        {
+            lockpickDamageTimer = 0f;
         }
         for (int i = 0; i < numBoxes; i++)
         {
@@ -350,7 +460,28 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
 
         updateCallbackId = capi.Event.RegisterCallback(Update, 16);
     }
-
+    private void CheckForRequiredItems()
+    {
+        var activeSlot = capi.World.Player.InventoryManager.ActiveHotbarSlot;
+        bool hasLockpick = activeSlot != null 
+                           && activeSlot.Itemstack != null 
+                           && activeSlot.Itemstack.Collectible != null 
+                           && activeSlot.Itemstack.Collectible.Code.Path.StartsWith("lockpick-");
+        EntityAgent entityAgent = capi.World.Player.Entity as EntityAgent;
+        bool hasTensionWrench = false;
+        if (entityAgent != null)
+        {
+            var offhandSlot = entityAgent.LeftHandItemSlot;
+            hasTensionWrench = offhandSlot != null 
+                               && offhandSlot.Itemstack != null 
+                               && offhandSlot.Itemstack.Collectible != null 
+                               && offhandSlot.Itemstack.Collectible.Code.Path.StartsWith("tensionwrench-");
+        }
+        if (!hasLockpick || !hasTensionWrench)
+        {
+            TryClose();
+        }
+    }
     private float NextRandomInterval()
     {
         Random rnd = new Random();
@@ -360,12 +491,21 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
     private void UpdateHotspot(float dt)
     {
         float halfWidth = hotspotWidth * 0.5f;
-        if (userInputActive)
+        if (spacebarHeld)
+        {
+            spaceHeldTimer += dt;
+            float shakeAmplitude = 0.02f;
+            float shakeFrequency = 20f;
+            float shake = shakeAmplitude * (float)Math.Sin(2 * Math.PI * shakeFrequency * spaceHeldTimer);
+            hotspotLogicalCenter = hotspotTargetCenter + shake;
+        }
+        else if (userInputActive)
         {
             hotspotLogicalCenter = hotspotTargetCenter;
         }
         else
         {
+            spaceHeldTimer = 0f;
             hotspotDirectionTimer -= dt;
             if (hotspotDirectionTimer <= 0)
             {
@@ -470,17 +610,33 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
         ctx.LineTo(keyholeLeftX, keyholeCenterY + keyholeArcRadius);
         ctx.ClosePath();
         ctx.Clip();
-        Color lockColor = GetLockColor();
-        Color darkerColor = new Color(lockColor.R * 0.5, lockColor.G * 0.5, lockColor.B * 0.5);
-        using (var bgPat = new RadialGradient(
-                    drawingX + drawingWidth / 2, drawingY + drawingHeight / 2, drawingWidth * 0.1,
-                    drawingX + drawingWidth / 2, drawingY + drawingHeight / 2, drawingWidth / 2))
+
+        if (lockTextureSurface != null)
         {
-            bgPat.AddColorStop(0, lockColor);
-            bgPat.AddColorStop(1, darkerColor);
-            ctx.SetSource(bgPat);
-            ctx.Rectangle(drawingX, drawingY, drawingWidth, drawingHeight);
-            ctx.Fill();
+            using (var pattern = new Cairo.SurfacePattern(lockTextureSurface))
+            {
+                double scaleX = drawingWidth / (double)lockTextureSurface.Width;
+                double scaleY = drawingHeight / (double)lockTextureSurface.Height;
+                pattern.Matrix = new Cairo.Matrix(1.0/scaleX, 0, 0, 1.0/scaleY, -drawingX/scaleX, -drawingY/scaleY);
+                ctx.SetSource(pattern);
+                ctx.Rectangle(drawingX, drawingY, drawingWidth, drawingHeight);
+                ctx.Fill();
+            }
+        }
+        else
+        {
+            using (var bgPat = new RadialGradient(
+                        drawingX + drawingWidth / 2, drawingY + drawingHeight / 2, drawingWidth * 0.1,
+                        drawingX + drawingWidth / 2, drawingY + drawingHeight / 2, drawingWidth / 2))
+            {
+                Color lockColor = GetLockColor();
+                Color darkerColor = new Color(lockColor.R * 0.5, lockColor.G * 0.5, lockColor.B * 0.5);
+                bgPat.AddColorStop(0, lockColor);
+                bgPat.AddColorStop(1, darkerColor);
+                ctx.SetSource(bgPat);
+                ctx.Rectangle(drawingX, drawingY, drawingWidth, drawingHeight);
+                ctx.Fill();
+            }
         }
         ctx.Restore();
         DrawMinigameUI(ctx, new ElementBounds() 
@@ -597,16 +753,36 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
             lockColor.G * 0.7,
             lockColor.B * 0.7
         );
-        using (var pat = new LinearGradient(x, y, x, y + size))
+        if (lockTextureSurface != null && tumblerCropOffsets != null && tumblerCropOffsets.Length > i)
         {
-            pat.AddColorStop(0, lighter);
-            pat.AddColorStop(1, darker);
-            ctx.SetSource(pat);
-            DrawRoundedRectangle(ctx, x, y, size, size, radius);
-            ctx.FillPreserve();
-            ctx.SetSourceRGB(0.1, 0.1, 0.1);
-            ctx.Stroke();
+            double cropSize = 16.0;
+            double scaleFactor = size / cropSize;
+            using (var pattern = new Cairo.SurfacePattern(lockTextureSurface))
+            {
+                pattern.Matrix = new Cairo.Matrix(
+                    1.0 / scaleFactor, 0,
+                    0, 1.0 / scaleFactor,
+                    -x / scaleFactor + tumblerCropOffsets[i].Item1,
+                    -y / scaleFactor + tumblerCropOffsets[i].Item2
+                );
+                ctx.SetSource(pattern);
+                DrawRoundedRectangle(ctx, x, y, size, size, radius);
+                ctx.FillPreserve();
+            }
         }
+        else
+        {
+            using (var pat = new LinearGradient(x, y, x, y + size))
+            {
+                pat.AddColorStop(0, lighter);
+                pat.AddColorStop(1, darker);
+                ctx.SetSource(pat);
+                DrawRoundedRectangle(ctx, x, y, size, size, radius);
+                ctx.FillPreserve();
+            }
+        }
+        ctx.SetSourceRGB(0.1, 0.1, 0.1);
+        ctx.Stroke();
         if (boxLocked[i])
         {
             ctx.SetSourceRGBA(0, 1, 0, 0.5);

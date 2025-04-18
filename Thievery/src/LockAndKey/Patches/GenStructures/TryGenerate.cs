@@ -1,6 +1,7 @@
 ﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Thievery.LockAndKey;
 using Thievery.Config;
 using Vintagestory.API.Common;
@@ -26,7 +27,7 @@ namespace Thievery.Patches
             "game:chest-trunk*",
             "game:woodenfencegate*"
         };
-
+        
         [HarmonyPostfix]
         public static void Postfix(
             WorldGenStructure __instance,
@@ -36,6 +37,17 @@ namespace Thievery.Patches
         {
             if (!__result || __instance.LastPlacedSchematicLocation == null)
                 return;
+            
+            var cfg   = ThieveryModSystem.LoadedConfig;
+            string gen   = __instance.Code.ToString();
+            string schem = __instance.LastPlacedSchematic.FromFileName;
+            string key   = $"{gen}:{schem}";
+
+            bool isBlacklisted = cfg.StructureBlacklist
+                .Any(s => s.Equals(key, StringComparison.OrdinalIgnoreCase));
+            if (isBlacklisted)
+            { return;
+            }
             HashSet<string> processedContainerIds = new HashSet<string>();
             var api = worldForCollectibleResolve.Api;
             var modSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
