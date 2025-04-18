@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using CarryOn;
 using HarmonyLib;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using ProtoBuf;
 using Thievery.Config;
 using Thievery.LockAndKey;
 using Thievery.LockpickAndTensionWrench;
@@ -14,10 +11,8 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
-using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
-using XLib.XLeveling;
 
 namespace Thievery
 {
