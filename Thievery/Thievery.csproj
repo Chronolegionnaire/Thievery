@@ -8,15 +8,15 @@
 
     <ItemGroup>
         <Reference Include="CarryOn">
-          <HintPath>..\..\..\Documents\CarryOn.dll</HintPath>
+          <HintPath>refDlls\CarryOn.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="configlib">
-          <HintPath>..\..\..\Documents\configlib.dll</HintPath>
+          <HintPath>refDlls\configlib.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="ImGui.NET">
-          <HintPath>..\..\..\Documents\ImGui.NET.dll</HintPath>
+          <HintPath>refDlls\ImGui.NET.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="VintagestoryAPI">
@@ -24,7 +24,7 @@
             <Private>false</Private>
         </Reference>
         <Reference Include="VSImGui">
-          <HintPath>..\..\..\Documents\VSImGui.dll</HintPath>
+          <HintPath>refDlls\VSImGui.dll</HintPath>
           <Private>False</Private>
         </Reference>
         <Reference Include="VSSurvivalMod">
@@ -64,7 +64,7 @@
             <Private>False</Private>
         </Reference>
         <Reference Include="xlib">
-          <HintPath>..\..\..\Documents\xlib.dll</HintPath>
+          <HintPath>refDlls\xlib.dll</HintPath>
           <Private>False</Private>
         </Reference>
     </ItemGroup>
