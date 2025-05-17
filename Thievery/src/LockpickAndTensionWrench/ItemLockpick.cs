@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Thievery.LockAndKey;
+using Thievery.src.LockpickAndTensionWrench;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Common.Entities;
@@ -11,41 +12,46 @@ namespace Thievery.LockpickAndTensionWrench
 {
     public class ItemLockpick : Item
     {
-        private int FlatPickDurationMs = 10000;
+        private int PadlockDifficulty = 10000;
         private ICoreAPI api;
         private LockManager lockManager;
 
         private Config.Config Config => ThieveryModSystem.LoadedConfig;
-        private int GetPickDuration(string lockType)
+        private int GetLockDifficulty(string lockType)
         {
-            var lockPickDurations = new Dictionary<string, int>
+            var padlockDifficulties = new Dictionary<string, int>
             {
-                { "padlock-blackbronze", (int)(Config.BlackBronzePadlockPickDurationSeconds * 1000) },
-                { "padlock-bismuthbronze", (int)(Config.BismuthBronzePadlockPickDurationSeconds * 1000) },
-                { "padlock-tinbronze", (int)(Config.TinBronzePadlockPickDurationSeconds * 1000) },
-                { "padlock-iron", (int)(Config.IronPadlockPickDurationSeconds * 1000) },
-                { "padlock-meteoriciron", (int)(Config.MeteoricIronPadlockPickDurationSeconds * 1000) },
-                { "padlock-steel", (int)(Config.SteelPadlockPickDurationSeconds * 1000) },
-                { "padlock-copper", (int)(Config.CopperPadlockPickDurationSeconds * 1000) },
-                { "padlock-nickel", (int)(Config.NickelPadlockPickDurationSeconds * 1000) },
-                { "padlock-silver", (int)(Config.SilverPadlockPickDurationSeconds * 1000) },
-                { "padlock-gold", (int)(Config.GoldPadlockPickDurationSeconds * 1000) },
-                { "padlock-titanium", (int)(Config.TitaniumPadlockPickDurationSeconds * 1000) },
-                { "padlock-lead", (int)(Config.LeadPadlockPickDurationSeconds * 1000) },
-                { "padlock-zinc", (int)(Config.ZincPadlockPickDurationSeconds * 1000) },
-                { "padlock-tin", (int)(Config.TinPadlockPickDurationSeconds * 1000) },
-                { "padlock-chromium", (int)(Config.ChromiumPadlockPickDurationSeconds * 1000) },
-                { "padlock-cupronickel", (int)(Config.CupronickelPadlockPickDurationSeconds * 1000) },
-                { "padlock-electrum", (int)(Config.ElectrumPadlockPickDurationSeconds * 1000) },
-                { "padlock-platinum", (int)(Config.PlatinumPadlockPickDurationSeconds * 1000) }
+                { "padlock-blackbronze", (int)(Config.BlackBronzePadlockDifficulty) },
+                { "padlock-bismuthbronze", (int)(Config.BismuthBronzePadlockDifficulty) },
+                { "padlock-tinbronze", (int)(Config.TinBronzePadlockDifficulty) },
+                { "padlock-iron", (int)(Config.IronPadlockDifficulty) },
+                { "padlock-meteoriciron", (int)(Config.MeteoricIronPadlockDifficulty) },
+                { "padlock-steel", (int)(Config.SteelPadlockDifficulty) },
+                { "padlock-copper", (int)(Config.CopperPadlockDifficulty) },
+                { "padlock-nickel", (int)(Config.NickelPadlockDifficulty) },
+                { "padlock-silver", (int)(Config.SilverPadlockDifficulty) },
+                { "padlock-gold", (int)(Config.GoldPadlockDifficulty) },
+                { "padlock-titanium", (int)(Config.TitaniumPadlockDifficulty) },
+                { "padlock-lead", (int)(Config.LeadPadlockDifficulty) },
+                { "padlock-zinc", (int)(Config.ZincPadlockDifficulty) },
+                { "padlock-tin", (int)(Config.TinPadlockDifficulty) },
+                { "padlock-chromium", (int)(Config.ChromiumPadlockDifficulty) },
+                { "padlock-cupronickel", (int)(Config.CupronickelPadlockDifficulty) },
+                { "padlock-electrum", (int)(Config.ElectrumPadlockDifficulty) },
+                { "padlock-platinum", (int)(Config.PlatinumPadlockDifficulty) }
             };
 
-            if (lockPickDurations.TryGetValue(lockType, out int duration))
+            if (padlockDifficulties.TryGetValue(lockType, out int difficulty))
             {
-                return duration;
+                //In case old settings used
+                difficulty = Math.Clamp(difficulty, 0, 100);
+                return difficulty;
             }
-            return (int)(Config.BlackBronzePadlockPickDurationSeconds * 1000);
+            //Middle difficulty
+            return 50;
         }
+
+        private bool ShouldUseBindingOrder(int lockDifficulty) => lockDifficulty >= Config.MinigameBindingOrderThreshold;
         public class PlayerPickData
         {
             public bool IsPicking = false;
@@ -159,7 +165,7 @@ namespace Thievery.LockpickAndTensionWrench
 
             if (Config.LockpickingMinigame)
             {
-                FlatPickDurationMs = GetPickDuration(lockData.LockType);
+                PadlockDifficulty = GetLockDifficulty(lockData.LockType);
                 if (api.Side == EnumAppSide.Client)
                 {
                     ICoreClientAPI capi = api as ICoreClientAPI;
@@ -178,11 +184,21 @@ namespace Thievery.LockpickAndTensionWrench
                         ShouldLoop = true
                     });
                     lockpickingSound?.Start();
+                    /*
                     var minigameDialog = new GuiLockpickingMinigame(
                         "Lockpicking", 
                         blockSel.Position, 
                         capi, 
-                        FlatPickDurationMs, 
+                        PadlockDifficulty, 
+                        lockData.LockType
+                    );
+                    */
+                    var minigameDialog = new GuiLockpickingMiniGameESStyle(
+                        "Lockpicking",
+                        blockSel.Position,
+                        capi,
+                        PadlockDifficulty,
+                        ShouldUseBindingOrder(PadlockDifficulty),
                         lockData.LockType
                     );
                     byEntity.Controls.RightMouseDown = false;
@@ -209,7 +225,7 @@ namespace Thievery.LockpickAndTensionWrench
                 return;
             }
 
-            FlatPickDurationMs = GetPickDuration(lockData.LockType);
+            PadlockDifficulty = GetLockDifficulty(lockData.LockType);
             string playerUid = player.PlayerUID;
             if (!pickDataByPlayerUid.TryGetValue(playerUid, out PlayerPickData pickData))
             {
@@ -293,7 +309,7 @@ namespace Thievery.LockpickAndTensionWrench
             }
 
             long elapsedTime = api.World.ElapsedMilliseconds - pickData.PickStartTime;
-            float progress = Math.Min(1f, (float)elapsedTime / FlatPickDurationMs);
+            float progress = Math.Min(1f, (float)elapsedTime / PadlockDifficulty * 2000);
 
             if (elapsedTime % 2000 < 100)
             {
@@ -325,7 +341,7 @@ namespace Thievery.LockpickAndTensionWrench
                 }
             }
 
-            if (elapsedTime >= FlatPickDurationMs)
+            if (elapsedTime >= PadlockDifficulty * 2000)
             {
                 CompletePicking(player, blockSel, pickData);
             }
