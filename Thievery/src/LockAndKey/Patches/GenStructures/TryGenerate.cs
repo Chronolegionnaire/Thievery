@@ -457,41 +457,41 @@ namespace Thievery.Patches
             switch (padlockCode)
             {
                 case "game:padlock-blackbronze":
-                    return config.BlackBronzePadlockPickDurationSeconds;
+                    return config.BlackBronzePadlockDifficulty;
                 case "game:padlock-bismuthbronze":
-                    return config.BismuthBronzePadlockPickDurationSeconds;
+                    return config.BismuthBronzePadlockDifficulty;
                 case "game:padlock-tinbronze":
-                    return config.TinBronzePadlockPickDurationSeconds;
+                    return config.TinBronzePadlockDifficulty;
                 case "game:padlock-iron":
-                    return config.IronPadlockPickDurationSeconds;
+                    return config.IronPadlockDifficulty;
                 case "game:padlock-meteoriciron":
-                    return config.MeteoricIronPadlockPickDurationSeconds;
+                    return config.MeteoricIronPadlockDifficulty;
                 case "game:padlock-steel":
-                    return config.SteelPadlockPickDurationSeconds;
+                    return config.SteelPadlockDifficulty;
                 case "game:padlock-copper":
-                    return config.CopperPadlockPickDurationSeconds;
+                    return config.CopperPadlockDifficulty;
                 case "game:padlock-nickel":
-                    return config.NickelPadlockPickDurationSeconds;
+                    return config.NickelPadlockDifficulty;
                 case "game:padlock-silver":
-                    return config.SilverPadlockPickDurationSeconds;
+                    return config.SilverPadlockDifficulty;
                 case "game:padlock-gold":
-                    return config.GoldPadlockPickDurationSeconds;
+                    return config.GoldPadlockDifficulty;
                 case "game:padlock-titanium":
-                    return config.TitaniumPadlockPickDurationSeconds;
+                    return config.TitaniumPadlockDifficulty;
                 case "game:padlock-lead":
-                    return config.LeadPadlockPickDurationSeconds;
+                    return config.LeadPadlockDifficulty;
                 case "game:padlock-zinc":
-                    return config.ZincPadlockPickDurationSeconds;
+                    return config.ZincPadlockDifficulty;
                 case "game:padlock-tin":
-                    return config.TinPadlockPickDurationSeconds;
+                    return config.TinPadlockDifficulty;
                 case "game:padlock-chromium":
-                    return config.ChromiumPadlockPickDurationSeconds;
+                    return config.ChromiumPadlockDifficulty;
                 case "game:padlock-cupronickel":
-                    return config.CupronickelPadlockPickDurationSeconds;
+                    return config.CupronickelPadlockDifficulty;
                 case "game:padlock-electrum":
-                    return config.ElectrumPadlockPickDurationSeconds;
+                    return config.ElectrumPadlockDifficulty;
                 case "game:padlock-platinum":
-                    return config.PlatinumPadlockPickDurationSeconds;
+                    return config.PlatinumPadlockDifficulty;
                 default:
                     return 60;
             }

@@ -17,24 +17,25 @@ namespace Thievery.Config
         private const string settingStructureMaxReinforcement = "thievery:Config.Setting.StructureMaxReinforcement";
         private const string settingReinforcedBuildingBlocks = "thievery:Config.Setting.ReinforcedBuildingBlocks";
         private const string settingReinforceAllBlocks = "thievery:Config.Setting.ReinforceAllBlocks";
-        private const string settingBlackBronzePickDuration = "thievery:Config.Setting.BlackBronzePadlockPickDuration";
-        private const string settingBismuthBronzePickDuration = "thievery:Config.Setting.BismuthBronzePadlockPickDuration";
-        private const string settingTinBronzePickDuration = "thievery:Config.Setting.TinBronzePadlockPickDuration";
-        private const string settingIronPickDuration = "thievery:Config.Setting.IronPadlockPickDuration";
-        private const string settingMeteoricIronPickDuration = "thievery:Config.Setting.MeteoricIronPadlockPickDuration";
-        private const string settingSteelPickDuration = "thievery:Config.Setting.SteelPadlockPickDuration";
-        private const string settingCopperPickDuration = "thievery:Config.Setting.CopperPadlockPickDuration";
-        private const string settingNickelPickDuration = "thievery:Config.Setting.NickelPadlockPickDuration";
-        private const string settingLeadPickDuration = "thievery:Config.Setting.LeadPadlockPickDuration";
-        private const string settingTinPickDuration = "thievery:Config.Setting.TinPadlockPickDuration";
-        private const string settingZincPickDuration = "thievery:Config.Setting.ZincPadlockPickDuration";
-        private const string settingCupronickelPickDuration = "thievery:Config.Setting.CupronickelPadlockPickDuration";
-        private const string settingChromiumPickDuration = "thievery:Config.Setting.ChromiumPadlockPickDuration";
-        private const string settingTitaniumPickDuration = "thievery:Config.Setting.TitaniumPadlockPickDuration";
-        private const string settingSilverPickDuration = "thievery:Config.Setting.SilverPadlockPickDuration";
-        private const string settingElectrumPickDuration = "thievery:Config.Setting.ElectrumPadlockPickDuration";
-        private const string settingGoldPickDuration = "thievery:Config.Setting.GoldPadlockPickDuration";
-        private const string settingPlatinumPickDuration = "thievery:Config.Setting.PlatinumPadlockPickDuration";
+        private const string settingBlackBronzePickDifficulty = "thievery:Config.Setting.BlackBronzePadlockPickDifficulty";
+        private const string settingBismuthBronzePickDifficulty = "thievery:Config.Setting.BismuthBronzePadlockPickDifficulty";
+        private const string settingTinBronzePickDifficulty = "thievery:Config.Setting.TinBronzePadlockPickDifficulty";
+        private const string settingIronPickDifficulty = "thievery:Config.Setting.IronPadlockPickDifficulty";
+        private const string settingMeteoricIronPickDifficulty = "thievery:Config.Setting.MeteoricIronPadlockPickDifficulty";
+        private const string settingSteelPickDifficulty = "thievery:Config.Setting.SteelPadlockPickDifficulty";
+        private const string settingCopperPickDifficulty = "thievery:Config.Setting.CopperPadlockPickDifficulty";
+        private const string settingNickelPickDifficulty = "thievery:Config.Setting.NickelPadlockPickDifficulty";
+        private const string settingLeadPickDifficulty = "thievery:Config.Setting.LeadPadlockPickDifficulty";
+        private const string settingTinPickDifficulty = "thievery:Config.Setting.TinPadlockPickDifficulty";
+        private const string settingZincPickDifficulty = "thievery:Config.Setting.ZincPadlockPickDifficulty";
+        private const string settingCupronickelPickDifficulty = "thievery:Config.Setting.CupronickelPadlockPickDifficulty";
+        private const string settingChromiumPickDifficulty = "thievery:Config.Setting.ChromiumPadlockPickDifficulty";
+        private const string settingTitaniumPickDifficulty = "thievery:Config.Setting.TitaniumPadlockPickDifficulty";
+        private const string settingSilverPickDifficulty = "thievery:Config.Setting.SilverPadlockPickDifficulty";
+        private const string settingElectrumPickDifficulty = "thievery:Config.Setting.ElectrumPadlockPickDifficulty";
+        private const string settingGoldPickDifficulty = "thievery:Config.Setting.GoldPadlockPickDifficulty";
+        private const string settingPlatinumPickDifficulty = "thievery:Config.Setting.PlatinumPadlockPickDifficulty";
+        private const string settingBindingOrderDifficultyThreshold = "thievery:Config.Setting.BindingOrderDifficultyThreshold";
         private const string settingAgedKeyDamageChance = "thievery:Config.Setting.AgedKeyDamageChance";
         private const string settingAgedKeyDamage = "thievery:Config.Setting.AgedKeyDamage";
         private const string settingStructureKeyChance = "thievery:Config.Setting.StructureKeyChance";
@@ -114,78 +115,82 @@ namespace Thievery.Config
             ImGui.DragFloat(Lang.Get(settingStructureLockChance) + $"##structureLockChance-{id}", ref structureLockChance, 0.01f, 0.0f, 1.0f);
             config.StructureLockChance = structureLockChance;
 
-            float blackBronzeDurationSeconds = config.BlackBronzePadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingBlackBronzePickDuration) + $"##blackBronzeDuration-{id}", ref blackBronzeDurationSeconds, 1.0f, 1.0f, 300.0f);
-            config.BlackBronzePadlockPickDurationSeconds = blackBronzeDurationSeconds;
+            int blackBronzePadlockDifficulty = config.BlackBronzePadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingBlackBronzePickDifficulty) + $"##blackBronzeDifficulty-{id}", ref blackBronzePadlockDifficulty, 1.0f, 1, 100);
+            config.BlackBronzePadlockDifficulty = blackBronzePadlockDifficulty;
 
-            float bismuthBronzeDurationSeconds = config.BismuthBronzePadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingBismuthBronzePickDuration) + $"##bismuthBronzeDuration-{id}", ref bismuthBronzeDurationSeconds, 1.0f, 1.0f, 300.0f);
-            config.BismuthBronzePadlockPickDurationSeconds = bismuthBronzeDurationSeconds;
+            int bismuthBronzePadlockDifficulty = config.BismuthBronzePadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingBismuthBronzePickDifficulty) + $"##bismuthBronzeDifficulty-{id}", ref bismuthBronzePadlockDifficulty, 1.0f, 1, 100);
+            config.BismuthBronzePadlockDifficulty = bismuthBronzePadlockDifficulty;
 
-            float tinBronzeDurationSeconds = config.TinBronzePadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingTinBronzePickDuration) + $"##tinBronzeDuration-{id}", ref tinBronzeDurationSeconds, 0.1f, 1.0f, 300.0f);
-            config.TinBronzePadlockPickDurationSeconds = tinBronzeDurationSeconds;
+            int tinBronzePadlockDifficulty = config.TinBronzePadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingTinBronzePickDifficulty) + $"##tinBronzeDifficulty-{id}", ref tinBronzePadlockDifficulty, 0.1f, 1, 100);
+            config.TinBronzePadlockDifficulty = tinBronzePadlockDifficulty;
 
-            float ironDurationSeconds = config.IronPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingIronPickDuration) + $"##ironDuration-{id}", ref ironDurationSeconds, 1.0f, 1.0f, 300.0f);
-            config.IronPadlockPickDurationSeconds = ironDurationSeconds;
+            int ironPadlockDifficulty = config.IronPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingIronPickDifficulty) + $"##ironDifficulty-{id}", ref ironPadlockDifficulty, 1.0f, 1, 100);
+            config.IronPadlockDifficulty = ironPadlockDifficulty;
 
-            float meteoricIronDurationSeconds = config.MeteoricIronPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingMeteoricIronPickDuration) + $"##meteoricIronDuration-{id}", ref meteoricIronDurationSeconds, 1.0f, 1.0f, 300.0f);
-            config.MeteoricIronPadlockPickDurationSeconds = meteoricIronDurationSeconds;
+            int meteoricIronPadlockDifficulty = config.MeteoricIronPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingMeteoricIronPickDifficulty) + $"##meteoricIronDifficulty-{id}", ref meteoricIronPadlockDifficulty, 1.0f, 1, 100);
+            config.MeteoricIronPadlockDifficulty = meteoricIronPadlockDifficulty;
 
-            float steelDurationSeconds = config.SteelPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingSteelPickDuration) + $"##steelDuration-{id}", ref steelDurationSeconds, 1.0f, 1.0f, 300.0f);
-            config.SteelPadlockPickDurationSeconds = steelDurationSeconds;
+            int steelPadlockDifficulty = config.SteelPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingSteelPickDifficulty) + $"##steelDifficulty-{id}", ref steelPadlockDifficulty, 1.0f, 1, 100);
+            config.SteelPadlockDifficulty = steelPadlockDifficulty;
 
-            float copperDurationSeconds = config.CopperPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingCopperPickDuration) + $"##copperDuration-{id}", ref copperDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.CopperPadlockPickDurationSeconds = copperDurationSeconds;
+            int copperPadlockDifficulty = config.CopperPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingCopperPickDifficulty) + $"##copperDifficulty-{id}", ref copperPadlockDifficulty, 1.0f, 1, 100);
+            config.CopperPadlockDifficulty = copperPadlockDifficulty;
 
-            float nickelDurationSeconds = config.NickelPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingNickelPickDuration) + $"##nickelDuration-{id}", ref nickelDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.NickelPadlockPickDurationSeconds = nickelDurationSeconds;
+            int nickelPadlockDifficulty = config.NickelPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingNickelPickDifficulty) + $"##nickelDifficulty-{id}", ref nickelPadlockDifficulty, 1.0f, 1, 100);
+            config.NickelPadlockDifficulty = nickelPadlockDifficulty;
 
-            float leadDurationSeconds = config.LeadPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingLeadPickDuration) + $"##leadDuration-{id}", ref leadDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.LeadPadlockPickDurationSeconds = leadDurationSeconds;
+            int leadPadlockDifficulty = config.LeadPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingLeadPickDifficulty) + $"##leadDifficulty-{id}", ref leadPadlockDifficulty, 1.0f, 1, 100);
+            config.LeadPadlockDifficulty = leadPadlockDifficulty;
 
-            float tinDurationSeconds = config.TinPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingTinPickDuration) + $"##tinDuration-{id}", ref tinDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.TinPadlockPickDurationSeconds = tinDurationSeconds;
+            int tinPadlockDifficulty = config.TinPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingTinPickDifficulty) + $"##tinDifficulty-{id}", ref tinPadlockDifficulty, 1.0f, 1, 100);
+            config.TinPadlockDifficulty = tinPadlockDifficulty;
 
-            float zincDurationSeconds = config.ZincPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingZincPickDuration) + $"##zincDuration-{id}", ref zincDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.ZincPadlockPickDurationSeconds = zincDurationSeconds;
+            int zincPadlockDifficulty = config.ZincPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingZincPickDifficulty) + $"##zincDifficulty-{id}", ref zincPadlockDifficulty, 1.0f, 1, 100);
+            config.ZincPadlockDifficulty = zincPadlockDifficulty;
 
-            float cupronickelDurationSeconds = config.CupronickelPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingCupronickelPickDuration) + $"##cupronickelDuration-{id}", ref cupronickelDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.CupronickelPadlockPickDurationSeconds = cupronickelDurationSeconds;
+            int cupronickelPadlockDifficulty = config.CupronickelPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingCupronickelPickDifficulty) + $"##cupronickelDifficulty-{id}", ref cupronickelPadlockDifficulty, 1.0f, 1, 100);
+            config.CupronickelPadlockDifficulty = cupronickelPadlockDifficulty;
 
-            float chromiumDurationSeconds = config.ChromiumPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingChromiumPickDuration) + $"##chromiumDuration-{id}", ref chromiumDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.ChromiumPadlockPickDurationSeconds = chromiumDurationSeconds;
+            int chromiumPadlockDifficulty = config.ChromiumPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingChromiumPickDifficulty) + $"##chromiumDifficulty-{id}", ref chromiumPadlockDifficulty, 1.0f, 1, 100);
+            config.ChromiumPadlockDifficulty = chromiumPadlockDifficulty;
 
-            float titaniumDurationSeconds = config.TitaniumPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingTitaniumPickDuration) + $"##titaniumDuration-{id}", ref titaniumDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.TitaniumPadlockPickDurationSeconds = titaniumDurationSeconds;
+            int titaniumPadlockDifficulty = config.TitaniumPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingTitaniumPickDifficulty) + $"##titaniumDifficulty-{id}", ref titaniumPadlockDifficulty, 1.0f, 1, 100);
+            config.TitaniumPadlockDifficulty = titaniumPadlockDifficulty;
 
-            float silverDurationSeconds = config.SilverPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingSilverPickDuration) + $"##silverDuration-{id}", ref silverDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.SilverPadlockPickDurationSeconds = silverDurationSeconds;
+            int silverPadlockDifficulty = config.SilverPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingSilverPickDifficulty) + $"##silverDifficulty-{id}", ref silverPadlockDifficulty, 1.0f, 1, 100);
+            config.SilverPadlockDifficulty = silverPadlockDifficulty;
 
-            float electrumDurationSeconds = config.ElectrumPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingElectrumPickDuration) + $"##electrumDuration-{id}", ref electrumDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.ElectrumPadlockPickDurationSeconds = electrumDurationSeconds;
+            int electrumPadlockDifficulty = config.ElectrumPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingElectrumPickDifficulty) + $"##electrumDifficulty-{id}", ref electrumPadlockDifficulty, 1.0f, 1, 100);
+            config.ElectrumPadlockDifficulty = electrumPadlockDifficulty;
 
-            float goldDurationSeconds = config.GoldPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingGoldPickDuration) + $"##goldDuration-{id}", ref goldDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.GoldPadlockPickDurationSeconds = goldDurationSeconds;
+            int goldPadlockDifficulty = config.GoldPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingGoldPickDifficulty) + $"##goldDifficulty-{id}", ref goldPadlockDifficulty, 1.0f, 1, 100);
+            config.GoldPadlockDifficulty = goldPadlockDifficulty;
 
-            float platinumDurationSeconds = config.PlatinumPadlockPickDurationSeconds;
-            ImGui.DragFloat(Lang.Get(settingPlatinumPickDuration) + $"##platinumDuration-{id}", ref platinumDurationSeconds, 1.0f, 1.0f, 400.0f);
-            config.PlatinumPadlockPickDurationSeconds = platinumDurationSeconds;
-            
+            int platinumPadlockDifficulty = config.PlatinumPadlockDifficulty;
+            ImGui.DragInt(Lang.Get(settingPlatinumPickDifficulty) + $"##platinumDifficulty-{id}", ref platinumPadlockDifficulty, 1.0f, 1, 100);
+            config.PlatinumPadlockDifficulty = platinumPadlockDifficulty;
+
+            int bindingOrderDifficultyThreshold = config.MinigameBindingOrderThreshold;
+            ImGui.DragInt(Lang.Get(settingBindingOrderDifficultyThreshold) + $"##bindingOrderDifficultyThreshold-{id}", ref bindingOrderDifficultyThreshold, 1.0f, 1, 100);
+            config.MinigameBindingOrderThreshold = bindingOrderDifficultyThreshold;
+
             ImGui.SeparatorText("Key Generation Settings");
 
             float agedKeyDamageChance = config.AgedKeyDamageChance;
