@@ -1,4 +1,5 @@
 ﻿using HarmonyLib;
+using Thievery.Config;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 
@@ -18,7 +19,7 @@ namespace Thievery.LockAndKey.Patches.ModSystemBlockReinforcement
                 __result = false;
                 return false;
             }
-            if (ThieveryModSystem.LoadedConfig.OwnerExempt && lockManager.IsPlayerAuthorized(pos, forPlayer))
+            if (ModConfig.Instance.Main.OwnerExempt && lockManager.IsPlayerAuthorized(pos, forPlayer))
             {
                 return true;
             }

@@ -7,57 +7,79 @@ using Vintagestory.API.MathTools;
 using System.Collections.Generic;
 using System.IO;
 using Thievery.LockpickAndTensionWrench;
+using HarmonyLib;
+using Thievery.Config;
+using Thievery.LockAndKey;
+using Vintagestory.API.Config;
 
-public class GuiLockpickingMinigame : GuiDialogBlockEntity
+namespace Thievery.src.LockpickAndTensionWrench
 {
-    public event Action OnComplete;
+    public class GuiLockpickingMiniGame : GuiDialogBlockEntity
+    {
+        public event Action OnComplete;
+        private SingleMeshGuiRenderer lockRenderer;
+        private SingleMeshGuiRenderer wrenchRenderer;
+        private SingleMeshGuiRenderer pickRenderer;
+        private const int MaxPinCount = 7;
+        private const int MaxPinCode = 6;
+        const string DefaultMetal = "steel";
+        private int difficultyLevel;
+        private bool bindingOrder;
+        private string lockType;
+        private long guiOpenedTime;
+        private const long rightClickDelay = 200;
+        private bool[] pinInitiallyDisabled;
+        private float pickXBase = -78f;
+        private float pickXDelta = 25f;
+        private float pickZBase  = -1036f;
+        private float pickZDelta = -25f;
+        private float pickDepthLerpPerSec = 12f;
+        private float pickTargetX, pickTargetZ;
+        private float pickPitchBaseDeg   = 360f;
+        private float pickPitchMaxDelta  = -20f;
+        private float pickTiltLerpPerSec = 12f;
+        private float pickYawBaseDeg     = -229f;
+        private float pickYawMaxDelta    = -0f;
+        private float pickYawLerpPerSec  = 12f;
+        private float pickRollBaseDeg    = 2f;
+        private float pickRollMaxDelta   = -20f;
+        private float pickRollLerpPerSec = 12f;
 
-    private ICoreClientAPI capi;
-    private int numBoxes;
-    private float[] boxFills;
-    private bool[] boxLocked;
-    private bool[] boxCycleLocked;
-    private float[] cycleLockTimers;
-    private float[] nextCycleInterval;
-    private float minCycleInterval = 2.0f;
-    private float maxCycleInterval = 5.0f;
-    private float cycleActiveDuration = 1.5f;
-    private float pointerSpeed = 0.25f;
-    private float pointerPosition = 0f;
-    private float hotspotLogicalCenter = 0.5f;
-    private float hotspotDisplayCenter = 0.5f;
-    private float hotspotWidth = 0.2f;
-    private float hotspotVelocity = 0.0f;
-    private float hotspotDirectionTimer = 0f;
-    private float hotspotDirectionIntervalMin = 1f;
-    private float hotspotDirectionIntervalMax = 2f;
-    private float hotspotMaxSpeed = 0.3f;
-    private float keyPressSpeedMultiplier = 1.0f;
-    private float hotspotTargetCenter;
-    private float hotspotLerpSpeed = 20.0f;
-    private float fillRateCorrect = 0.85f;
-    private float rapidUnfillRate = 1.0f;
-    private float slowUnfillRate = 0.03f;
-    private bool userInputActive = false;
-    private bool isMouseDown = false;
-    private int? selectedBoxIndex = null;
-    private long lastUpdateMs;
-    private double drawingX = 10, drawingY = 40, drawingWidth = 300, drawingHeight = 260;
-    private long updateCallbackId;
-    private bool running = false;
-    private float padlockDuration;
-    private List<float> boxCenters = new List<float>();
-    private long guiOpenedTime;
-    private const long rightClickDelay = 200;
-    private const int MaxBoxesPerRow = 4;
-    private string lockType;
-    private (double, double)[] tumblerCropOffsets;
-    private float tensionWrenchDamageTimer = 0f;
-    private float lockpickDamageTimer = 0f;
-    private float damageThreshold = 0.5f;
-    private bool spacebarHeld = false;
-    private float spaceHeldTimer = 0f;
-    private Dictionary<string, Color> metalColorMapping = new Dictionary<string, Color>
+        private ILoadedSound sLoopInteract, sHotspot, sFalse, sSet, sSelect;
+        
+        private HashSet<int>[] pinFalseSetCodes;
+        private int[] lastClickPos;
+        private BlockPos bePos;
+        private string sessionTokenActive;
+        private string sessionTokenOffhand;
+        private const string SessionAttrKey = "thievery.lockpickSessionToken";
+        private ItemSlot initialActiveSlot;
+        private ItemSlot initialOffhandSlot;
+        private AssetLocation initialActiveCode;
+        private AssetLocation initialOffhandCode;
+        private bool tokenEnforcementActive;
+        private long tokenEnforceStartMs;
+        private const int tokenEnforceDelayMs = 400;
+        private double missUnsetChance;
+        private double falseUnsetChance;
+        private double bindingChance;  
+        private double D01 => GameMath.Clamp((difficultyLevel - 10) / 85.0, 0.0, 1.0);
+        private bool[] pinIsBinding;
+
+        private Random Rng => capi?.World?.Rand ?? Random.Shared;
+        public override bool ShouldReceiveKeyboardEvents() => true;
+        enum PinStates
+        {
+            Still,
+            Down,
+            Up,
+            Locked
+        }
+
+        private const double dialogWidth = 640, dialogHeight = 520;
+        private const double drawingX = 320, drawingY = 0, lockWidth = 320, lockHeight = 520;
+
+        private Dictionary<string, Color> metalColorMapping = new Dictionary<string, Color>
     {
         { "blackbronze", new Color(0.18, 0.12, 0.13) },
         { "bismuthbronze", new Color(0.57, 0.29, 0.14) },
@@ -78,776 +100,912 @@ public class GuiLockpickingMinigame : GuiDialogBlockEntity
         { "electrum", new Color(0.9, 0.8, 0.6) },
         { "platinum", new Color(0.9, 0.9, 1.0) }
     };
-    private ImageSurface lockTextureSurface;
-    private Color GetLockColor()
-    {
-        string metal = lockType.Replace("padlock-", "");
-        if (metalColorMapping.TryGetValue(metal, out Color color))
+
+
+        private ImageSurface lockTextureSurface;
+        private Color GetLockColor()
         {
-            return color;
-        }
-        return new Color(0.7, 0.7, 0.7);
-    }
-    public GuiLockpickingMinigame(
-        string dialogTitle,
-        BlockPos blockEntityPos,
-        ICoreClientAPI capi,
-        int padlockDurationMs,
-        string lockType
-    ) : base(dialogTitle, blockEntityPos, capi)
-    {
-        this.capi = capi;
-        this.padlockDuration = padlockDurationMs;
-        this.lockType = lockType;
-        this.numBoxes = CalculateNumBoxes(padlockDurationMs);
-
-        boxFills = new float[numBoxes];
-        boxLocked = new bool[numBoxes];
-        boxCycleLocked = new bool[numBoxes];
-        cycleLockTimers = new float[numBoxes];
-
-        nextCycleInterval = new float[numBoxes];
-        Random rnd = new Random();
-        for (int i = 0; i < numBoxes; i++)
-        {
-            nextCycleInterval[i] = (float)(rnd.NextDouble() * (maxCycleInterval - minCycleInterval) + minCycleInterval);
-        }
-
-        lastUpdateMs = capi.ElapsedMilliseconds;
-
-        SetupDifficultyScaling();
-        SetupDialog();
-        BuildBoxCenters();
-    }
-
-    private int CalculateNumBoxes(int padlockDurationMs)
-    {
-        int minBoxes = 3;
-        int maxBoxes = 8;
-        int minDuration = 10000;
-        int maxDuration = 360000;
-
-        if (padlockDurationMs <= minDuration) return minBoxes;
-        if (padlockDurationMs >= maxDuration) return maxBoxes;
-
-        double t = (padlockDurationMs - minDuration) / (double)(maxDuration - minDuration);
-        return (int)Math.Round(minBoxes + t * (maxBoxes - minBoxes));
-    }
-
-    private void SetupDifficultyScaling()
-    {
-        float difficulty = (padlockDuration - 10000f) / (360000f - 10000f);
-        difficulty = Math.Max(0f, Math.Min(1f, difficulty));
-
-        float minPtrSpeed = 0.2f;
-        float maxPtrSpeed = 0.5f;
-        pointerSpeed = minPtrSpeed + (maxPtrSpeed - minPtrSpeed) * difficulty;
-
-        float maxHotspotWidth = 0.4f;
-        float minHotspotWidth = 0.1f;
-        hotspotWidth = maxHotspotWidth - difficulty * (maxHotspotWidth - minHotspotWidth);
-
-        hotspotMaxSpeed = 2f + 2f * difficulty;
-        hotspotDirectionIntervalMin = 0.5f;
-        hotspotDirectionIntervalMax = 1.0f;
-
-        Random rnd = new Random();
-        hotspotLogicalCenter = (float)rnd.NextDouble() * (1f - hotspotWidth) + hotspotWidth / 2f;
-        hotspotTargetCenter = hotspotLogicalCenter;
-        hotspotVelocity = (float)(rnd.NextDouble() * 2 - 1) * hotspotMaxSpeed;
-        hotspotDirectionTimer = (float)(rnd.NextDouble() * (hotspotDirectionIntervalMax - hotspotDirectionIntervalMin) + hotspotDirectionIntervalMin);
-    }
-
-    private void SetupDialog()
-    {
-        ElementBounds dialogBounds = ElementBounds.Fixed(0, 0, 320, 320)
-            .WithAlignment(EnumDialogArea.CenterMiddle);
-        ElementBounds drawBounds = ElementBounds.Fixed(drawingX, drawingY, drawingWidth, drawingHeight)
-            .WithAlignment(EnumDialogArea.CenterMiddle);
-
-        ClearComposers();
-
-        SingleComposer = capi.Gui
-            .CreateCompo("lockpickingminigame", dialogBounds)
-            .AddDynamicCustomDraw(drawBounds, new DrawDelegateWithBounds(OnMinigameDraw), "minigameDraw")
-            .Compose(true);
-    }
-
-    private void OnTitleBarClose()
-    {
-        TryClose();
-    }
-    public override void OnGuiOpened()
-    {
-        base.OnGuiOpened();
-        guiOpenedTime = capi.ElapsedMilliseconds;
-        running = true;
-        capi.Input.InWorldAction += OnInWorldAction;
-        capi.Input.InWorldAction += OnSneakAction;
-        updateCallbackId = capi.Event.RegisterCallback(Update, 16);
-        capi.World.Player.Entity.Controls.Sneak = true;
-        string metal = lockType.Replace("padlock-", "");
-        AssetLocation texLoc = new AssetLocation("game", $"textures/block/metal/ingot/{metal}.png");
-        IAsset asset = capi.Assets.TryGet(texLoc);
-        if (asset != null && asset.Data != null)
-        {
-            string tempFile = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"{texLoc.Domain}_{texLoc.Path.Replace("/", "_")}.png");
-            File.WriteAllBytes(tempFile, asset.Data);
-            lockTextureSurface = new Cairo.ImageSurface(tempFile);
-            tumblerCropOffsets = new (double, double)[numBoxes];
-            Random rnd = new Random();
-            double textureWidth = lockTextureSurface.Width;
-            double textureHeight = lockTextureSurface.Height;
-            double cropSize = 16.0;
-            double maxOffsetX = textureWidth - cropSize;
-            double maxOffsetY = textureHeight - cropSize;
-            for (int i = 0; i < numBoxes; i++)
+            string metal = lockType.Replace("padlock-", "");
+            if (metalColorMapping.TryGetValue(metal, out Color color))
             {
-                double offsetX = rnd.NextDouble() * maxOffsetX;
-                double offsetY = rnd.NextDouble() * maxOffsetY;
-                tumblerCropOffsets[i] = (offsetX, offsetY);
+                return color;
             }
+            return new Color(0.671, 0.514, 0.039);
         }
-    }
 
-    private void OnSneakAction(EnumEntityAction action, bool on, ref EnumHandling handled)
-    {
-        if (action == EnumEntityAction.Sneak && on == false)
+        public GuiLockpickingMiniGame(
+            string dialogTitle,
+            BlockPos blockEntityPos,
+            ICoreClientAPI capi,
+            int padlockDifficulty,
+            bool bindingOrder,
+            string lockType)
+            : base(dialogTitle, blockEntityPos, capi)
         {
-            handled = EnumHandling.PreventDefault;
-            capi.World.Player.Entity.Controls.Sneak = true;
+            this.capi = capi;
+            this.bindingOrder = bindingOrder;
+            this.difficultyLevel = padlockDifficulty;
+            this.lockType = lockType;
+            this.bePos = blockEntityPos;
+
+            SetupDifficultyScaling();
+            SetupDialog();
+            SetupGame();
         }
-    }
 
-    private void OnInWorldAction(EnumEntityAction action, bool on, ref EnumHandling handled)
-    {
-        if (action == EnumEntityAction.RightMouseDown && on)
+        private PinStates[] pinStates;
+        private int[] pinCodes;
+        private int[]? pinBindingOrder = null;
+
+        private void SetupDifficultyScaling()
         {
-            long currentTime = capi.ElapsedMilliseconds;
-            if (currentTime - guiOpenedTime > rightClickDelay)
+            var pins = CalculatePinCount();
+
+            pinStates = new PinStates[MaxPinCount];
+            pinCodes = new int[MaxPinCount];
+            pinInitiallyDisabled = new bool[MaxPinCount];
+
+            for (int i = 0; i < MaxPinCount; ++i)
             {
-                TryClose();
-            }
-            handled = EnumHandling.PreventDefault;
-        }
-    }
-
-    public override void OnGuiClosed()
-    {
-        capi.Input.InWorldAction -= OnInWorldAction;
-        capi.Input.InWorldAction -= OnSneakAction;
-        running = false;
-        capi.Event.UnregisterCallback(updateCallbackId);
-        updateCallbackId = 0;
-        capi.World.Player.Entity.Controls.RightMouseDown = false;
-        base.OnGuiClosed();
-    }
-
-    public override void OnKeyDown(KeyEvent args)
-    {
-        int key = args.KeyCode;
-        if (key == (int)GlKeys.A || key == (int)GlKeys.Left ||
-            key == (int)GlKeys.D || key == (int)GlKeys.Right)
-        {
-            DamageTensionWrench();
-            float nudgeAmount = 0.1f * keyPressSpeedMultiplier;
-            float halfWidth = hotspotWidth / 2;
-            if (key == (int)GlKeys.A || key == (int)GlKeys.Left)
-            {
-                hotspotTargetCenter -= nudgeAmount;
-                userInputActive = true;
-                args.Handled = true;
-            }
-            else if (key == (int)GlKeys.D || key == (int)GlKeys.Right)
-            {
-                hotspotTargetCenter += nudgeAmount;
-                userInputActive = true;
-                args.Handled = true;
-            }
-            hotspotTargetCenter = GameMath.Clamp(hotspotTargetCenter, halfWidth, 1f - halfWidth);
-        }
-        if (key == (int)GlKeys.Space)
-        {
-            spacebarHeld = true;
-            hotspotTargetCenter = hotspotLogicalCenter;
-            args.Handled = true;
-        }
-        base.OnKeyDown(args);
-    }
-    private void DamageTensionWrench()
-    {
-        ICoreClientAPI client = capi;
-        EntityAgent entityAgent = client.World.Player.Entity as EntityAgent;
-        if (entityAgent == null) return;
-
-        var offhandSlot = entityAgent.LeftHandItemSlot;
-        if (offhandSlot != null && offhandSlot.Itemstack != null)
-        {
-            string itemCode = offhandSlot.Itemstack.Collectible.Code.Path;
-            if (itemCode.StartsWith("tensionwrench-"))
-            {
-                int damageAmount = 5;
-                client.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
+                if (i < pins)
                 {
-                    InventoryId = offhandSlot.Inventory.InventoryID,
-                    SlotId = offhandSlot.Inventory.GetSlotId(offhandSlot),
-                    Damage = damageAmount
-                });
-            }
-        }
-    }
-
-    public override void OnKeyUp(KeyEvent args)
-    {
-        if (args.KeyCode == (int)GlKeys.Space)
-        {
-            spacebarHeld = false;
-            args.Handled = true;
-        }
-        userInputActive = false;
-        base.OnKeyUp(args);
-    }
-    public override void OnMouseDown(MouseEvent args)
-    {
-        if (args.Button != EnumMouseButton.Left)
-            return;
-        var customDraw = SingleComposer.GetCustomDraw("minigameDraw");
-        if (args.Button == EnumMouseButton.Left && customDraw != null)
-        {
-            ElementBounds bounds = customDraw.Bounds;
-            double localX = args.X - bounds.absX;
-            double localY = args.Y - bounds.absY;
-            DamageLockpick();
-
-            double boxSize = 40;
-            double rowGap = 10;
-            int totalRows = (int)Math.Ceiling(numBoxes / (double)MaxBoxesPerRow);
-            double areaWidth = bounds.fixedWidth;
-            double areaX = bounds.fixedX;
-            double startY = bounds.fixedY + 60;
-            double barY = startY + boxSize + 10;
-            double meterHeight = 20;
-            double originalRow1Y = startY + (boxSize + rowGap);
-            double desiredRow1Y = barY + meterHeight + 10;
-            double shift = desiredRow1Y - originalRow1Y;
-
-            int boxIndex = 0;
-            for (int row = 0; row < totalRows && boxIndex < numBoxes; row++)
-            {
-                int boxesInRow = (row == totalRows - 1)
-                    ? numBoxes - row * MaxBoxesPerRow
-                    : MaxBoxesPerRow;
-
-                double spacing = (areaWidth - (boxesInRow * boxSize)) / (boxesInRow + 1);
-                double rowY = startY + row * (boxSize + rowGap);
-                if (row >= 1)
-                    rowY += shift;
-
-                for (int col = 0; col < boxesInRow && boxIndex < numBoxes; col++, boxIndex++)
-                {
-                    double boxX = areaX + spacing + col * (boxSize + spacing);
-                    if (localX >= boxX && localX <= boxX + boxSize && localY >= rowY && localY <= rowY + boxSize)
-                    {
-                        if (!boxLocked[boxIndex] && !boxCycleLocked[boxIndex])
-                        {
-                            selectedBoxIndex = boxIndex;
-                            isMouseDown = true;
-                            args.Handled = true;
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-        args.Handled = selectedBoxIndex.HasValue;
-        base.OnMouseDown(args);
-    }
-    private void DamageLockpick()
-    {
-        ICoreClientAPI client = capi;
-        var activeSlot = client.World.Player.InventoryManager.ActiveHotbarSlot;
-        if (activeSlot != null && activeSlot.Itemstack != null)
-        {
-            string itemCode = activeSlot.Itemstack.Collectible.Code.Path;
-            if (itemCode.StartsWith("lockpick-"))
-            {
-                int damageAmount = 20;
-                client.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
-                {
-                    InventoryId = activeSlot.Inventory.InventoryID,
-                    SlotId = activeSlot.Inventory.GetSlotId(activeSlot),
-                    Damage = damageAmount
-                });
-            }
-        }
-    }
-
-    public override void OnMouseUp(MouseEvent args)
-    {
-        if (args.Button != EnumMouseButton.Left)
-            return;
-    
-        selectedBoxIndex = null;
-        isMouseDown = false;
-        args.Handled = true;
-        base.OnMouseUp(args);
-    }
-
-    public override bool CaptureRawMouse() => false;
-    public override bool ShouldReceiveMouseEvents() => true; 
-    private void Update(float dt)
-    {
-        if (!IsOpened() || !running) return;
-        if (capi.World.Player != null)
-        {
-            capi.World.Player.Entity.Controls.Sneak = true;
-            CheckForRequiredItems();
-        }
-        if (userInputActive)
-        {
-            tensionWrenchDamageTimer += dt;
-            if (tensionWrenchDamageTimer >= damageThreshold)
-            {
-                DamageTensionWrench();
-                tensionWrenchDamageTimer = 0f;
-            }
-        }
-        else
-        {
-            tensionWrenchDamageTimer = 0f;
-        }
-        bool damagingLockpick = isMouseDown || spacebarHeld;
-        if (damagingLockpick)
-        {
-            float currentThreshold = spacebarHeld ? damageThreshold * 0.5f : damageThreshold;
-            lockpickDamageTimer += dt;
-            if (lockpickDamageTimer >= currentThreshold)
-            {
-                DamageTensionWrench();
-                DamageLockpick();
-                lockpickDamageTimer = 0f;
-            }
-        }
-        else
-        {
-            lockpickDamageTimer = 0f;
-        }
-        for (int i = 0; i < numBoxes; i++)
-        {
-            if (boxLocked[i]) continue;
-            if (boxCycleLocked[i])
-            {
-                cycleLockTimers[i] -= dt;
-                if (cycleLockTimers[i] <= 0)
-                {
-                    boxCycleLocked[i] = false;
-                    nextCycleInterval[i] = NextRandomInterval();
-                }
-            }
-            else
-            {
-                nextCycleInterval[i] -= dt;
-                if (nextCycleInterval[i] <= 0)
-                {
-                    boxCycleLocked[i] = true;
-                    cycleLockTimers[i] = cycleActiveDuration;
-                }
-            }
-        }
-        UpdateHotspot(dt);
-        var customDraw = SingleComposer.GetCustomDraw("minigameDraw");
-        customDraw?.Redraw();
-
-        updateCallbackId = capi.Event.RegisterCallback(Update, 16);
-    }
-    private void CheckForRequiredItems()
-    {
-        var activeSlot = capi.World.Player.InventoryManager.ActiveHotbarSlot;
-        bool hasLockpick = activeSlot != null 
-                           && activeSlot.Itemstack != null 
-                           && activeSlot.Itemstack.Collectible != null 
-                           && activeSlot.Itemstack.Collectible.Code.Path.StartsWith("lockpick-");
-        EntityAgent entityAgent = capi.World.Player.Entity as EntityAgent;
-        bool hasTensionWrench = false;
-        if (entityAgent != null)
-        {
-            var offhandSlot = entityAgent.LeftHandItemSlot;
-            hasTensionWrench = offhandSlot != null 
-                               && offhandSlot.Itemstack != null 
-                               && offhandSlot.Itemstack.Collectible != null 
-                               && offhandSlot.Itemstack.Collectible.Code.Path.StartsWith("tensionwrench-");
-        }
-        if (!hasLockpick || !hasTensionWrench)
-        {
-            TryClose();
-        }
-    }
-    private float NextRandomInterval()
-    {
-        Random rnd = new Random();
-        return (float)(rnd.NextDouble() * (maxCycleInterval - minCycleInterval) + minCycleInterval);
-    }
-
-    private void UpdateHotspot(float dt)
-    {
-        float halfWidth = hotspotWidth * 0.5f;
-        if (spacebarHeld)
-        {
-            spaceHeldTimer += dt;
-            float shakeAmplitude = 0.02f;
-            float shakeFrequency = 20f;
-            float shake = shakeAmplitude * (float)Math.Sin(2 * Math.PI * shakeFrequency * spaceHeldTimer);
-            hotspotLogicalCenter = hotspotTargetCenter + shake;
-        }
-        else if (userInputActive)
-        {
-            hotspotLogicalCenter = hotspotTargetCenter;
-        }
-        else
-        {
-            spaceHeldTimer = 0f;
-            hotspotDirectionTimer -= dt;
-            if (hotspotDirectionTimer <= 0)
-            {
-                Random rnd = new Random();
-                float newSpeed = (float)(rnd.NextDouble() * 2 - 1) * hotspotMaxSpeed;
-                hotspotVelocity = newSpeed;
-                hotspotDirectionTimer = (float)(rnd.NextDouble() * (hotspotDirectionIntervalMax - hotspotDirectionIntervalMin) + hotspotDirectionIntervalMin);
-            }
-            hotspotLogicalCenter += hotspotVelocity * dt;
-            if (hotspotLogicalCenter <= halfWidth)
-            {
-                hotspotLogicalCenter = halfWidth;
-                hotspotVelocity = -hotspotVelocity;
-            }
-            else if (hotspotLogicalCenter >= 1f - halfWidth)
-            {
-                hotspotLogicalCenter = 1f - halfWidth;
-                hotspotVelocity = -hotspotVelocity;
-            }
-        }
-        hotspotDisplayCenter = GameMath.Lerp(hotspotDisplayCenter, hotspotLogicalCenter, Math.Min(1f, hotspotLerpSpeed * dt));
-    }
-
-    private void BuildBoxCenters()
-    {
-        boxCenters.Clear();
-        int totalRows = (int)Math.Ceiling(numBoxes / (double)MaxBoxesPerRow);
-        double boxSize = 40.0;
-        int index = 0;
-        for (int row = 0; row < totalRows; row++)
-        {
-            int boxesInRow = (row == totalRows - 1) ? numBoxes - row * MaxBoxesPerRow : MaxBoxesPerRow;
-            for (int col = 0; col < boxesInRow && index < numBoxes; col++, index++)
-            {
-                float centerX = (float)((col + 0.5) / boxesInRow);
-                boxCenters.Add(centerX);
-            }
-        }
-    }
-
-    private void OnMinigameDraw(Context ctx, ImageSurface surface, ElementBounds currentBounds)
-    {
-        ctx.Save();
-
-        long currentMs = capi.ElapsedMilliseconds;
-        float deltaTime = (currentMs - lastUpdateMs) / 1000f;
-        lastUpdateMs = currentMs;
-        float timeSec = currentMs / 1000f;
-        pointerPosition = 0.5f + 0.5f * (float)Math.Sin(2 * Math.PI * pointerSpeed * timeSec);
-        if (selectedBoxIndex.HasValue)
-        {
-            int i = selectedBoxIndex.Value;
-            if (!boxLocked[i] && !boxCycleLocked[i])
-            {
-                bool pointerInHotspot = (pointerPosition >= (hotspotDisplayCenter - hotspotWidth * 0.5f)) &&
-                                        (pointerPosition <= (hotspotDisplayCenter + hotspotWidth * 0.5f));
-                float boxX = boxCenters[i];
-                float hLeft = hotspotDisplayCenter - hotspotWidth * 0.5f;
-                float hRight = hotspotDisplayCenter + hotspotWidth * 0.5f;
-                bool hotspotAboveBox = (boxX >= hLeft && boxX <= hRight);
-
-                if (isMouseDown)
-                {
-                    if (pointerInHotspot && hotspotAboveBox)
-                        boxFills[i] += fillRateCorrect * deltaTime;
-                    else
-                        boxFills[i] -= rapidUnfillRate * deltaTime;
+                    pinStates[i] = PinStates.Still;
+                    pinCodes[i] = capi.World.Rand.Next(1, MaxPinCode + 1);
+                    pinInitiallyDisabled[i] = false;
                 }
                 else
                 {
-                    boxFills[i] -= slowUnfillRate * deltaTime;
+                    pinStates[i] = PinStates.Locked;
+                    pinCodes[i] = MaxPinCode;
+                    pinInitiallyDisabled[i] = true;
                 }
-                boxFills[i] = Math.Max(0, Math.Min(1, boxFills[i]));
-                if (boxFills[i] >= 1)
-                    boxLocked[i] = true;
             }
-        }
-        for (int i = 0; i < numBoxes; i++)
-        {
-            if (!boxLocked[i] && (selectedBoxIndex == null || selectedBoxIndex.Value != i))
+
+            if (bindingOrder)
             {
-                boxFills[i] = Math.Max(0, boxFills[i] - slowUnfillRate * deltaTime);
+                pinBindingOrder = Enumerable.Range(0, MaxPinCount).ToArray();
+                GameMath.Shuffle(Random.Shared, pinBindingOrder);
             }
+            int baseFalseSetsPerPin = (int)GameMath.Clamp(Math.Floor(difficultyLevel / 30.0), 0, MaxPinCode - 1);
+
+            pinFalseSetCodes = new HashSet<int>[MaxPinCount];
+            lastClickPos = new int[MaxPinCount];
+
+            for (int i = 0; i < MaxPinCount; i++)
+            {
+                pinFalseSetCodes[i] = new HashSet<int>();
+                lastClickPos[i] = -1;
+
+                if (pinInitiallyDisabled[i]) continue;
+                int desiredFalseSets = baseFalseSetsPerPin + (capi.World.Rand.NextDouble() < 0.3 ? 1 : 0);
+                desiredFalseSets = GameMath.Clamp(desiredFalseSets, 0, MaxPinCode - 1);
+
+                int tries = 0;
+                while (pinFalseSetCodes[i].Count < desiredFalseSets && tries++ < 30)
+                {
+                    int code = capi.World.Rand.Next(1, MaxPinCode + 1);
+                    if (code != pinCodes[i]) pinFalseSetCodes[i].Add(code);
+                }
+            }
+            bindingChance = GameMath.Clamp(0.30 + D01 * 0.45, 0.30, 0.75);
+
+            pinIsBinding = new bool[MaxPinCount];
+            RebindPins();
+            missUnsetChance = GameMath.Clamp(0.15 + D01 * 0.30, 0.05, 0.60);
+            falseUnsetChance = GameMath.Clamp(0.35 + D01 * 0.40, 0.20, 0.85);
         }
-        if (boxLocked.All(x => x))
+
+        private int CalculatePinCount()
         {
-            OnComplete?.Invoke();
-            capi.Event.EnqueueMainThreadTask(() => TryClose(), "lockpickingclose");
+            if (difficultyLevel < 20) return 3;
+            if (difficultyLevel < 40) return 4;
+            if (difficultyLevel < 60) return 5;
+            if (difficultyLevel < 80) return 6;
+            return 7;
+        }
+
+
+        private int pinIndex = 0;
+        private bool ignoreLeftUntilUp, ignoreRightUntilUp;
+        private bool leftHeld, rightHeld;
+        private void StepSelection(int dir)
+        {
+            if (dir == 0) return;
+            int count = pinStates.Length;
+            for (int i = 0; i < count; i++)
+            {
+                pinIndex = (pinIndex + (dir > 0 ? 1 : -1) + count) % count;
+                if (!pinInitiallyDisabled[pinIndex]) break;
+            }
+            PlayOneShot(sSelect);
+            RecomputePickDepthTargets();
+            SnapPickTiltToCurrent();
+            SingleComposer.GetCustomDraw("minigameDraw")?.Redraw();
+        }
+
+        private void SetupDialog()
+        {
+            ElementBounds dialogBounds = ElementBounds.Fixed(0, 0, dialogWidth, dialogHeight)
+                .WithAlignment(EnumDialogArea.CenterMiddle);
+            ElementBounds elementBounds = ElementBounds.Fixed(0, 0, dialogWidth, dialogHeight)
+                .WithAlignment(EnumDialogArea.CenterMiddle);
+
+            ClearComposers();
+
+
+            SingleComposer = capi.Gui
+                .CreateCompo("lockpickingmingame", dialogBounds)
+                .AddDynamicCustomDraw(elementBounds, new DrawDelegateWithBounds(OnMinigameDraw), "minigameDraw")
+                .Compose(true);
+        }
+
+        private void SetupGame()
+        {
+            pinPositions = new float[MaxPinCount];
+            pinRotations = new float[MaxPinCount];
+            lastClickPos = new int[MaxPinCount];
+            for (int i = 0; i < MaxPinCount; i++) lastClickPos[i] = -1;
+        }
+
+        private float lastUpdateMs;
+        private void OnMinigameDraw(Context ctx, ImageSurface surface, ElementBounds elementBounds)
+        {
+            ctx.Save();
+            long currentMs = capi.ElapsedMilliseconds;
+            float deltaTime = (currentMs - lastUpdateMs) / 1000f;
+            lastUpdateMs = currentMs;
+            float timeSec = currentMs / 1000f;
             ctx.Restore();
-            return;
         }
-        ctx.Save();
-        ctx.NewPath();
-        double keyholeCenterY = drawingY + drawingHeight * 0.46;
-        double keyholeLeftX = drawingX + 10;
-        double keyholeRightX = drawingX + drawingWidth - 10;
-        double keyholeArcRadius = 20;
-        ctx.MoveTo(keyholeLeftX, keyholeCenterY);
-        ctx.Arc(keyholeLeftX, keyholeCenterY, keyholeArcRadius, Math.PI / 2, -Math.PI / 2);
-        ctx.LineTo(keyholeRightX, keyholeCenterY - keyholeArcRadius);
-        ctx.Arc(keyholeRightX, keyholeCenterY, keyholeArcRadius, -Math.PI / 2, Math.PI / 2);
-        ctx.LineTo(keyholeLeftX, keyholeCenterY + keyholeArcRadius);
-        ctx.ClosePath();
-        ctx.Clip();
 
-        if (lockTextureSurface != null)
-        {
-            using (var pattern = new Cairo.SurfacePattern(lockTextureSurface))
-            {
-                double scaleX = drawingWidth / (double)lockTextureSurface.Width;
-                double scaleY = drawingHeight / (double)lockTextureSurface.Height;
-                pattern.Matrix = new Cairo.Matrix(1.0/scaleX, 0, 0, 1.0/scaleY, -drawingX/scaleX, -drawingY/scaleY);
-                ctx.SetSource(pattern);
-                ctx.Rectangle(drawingX, drawingY, drawingWidth, drawingHeight);
-                ctx.Fill();
-            }
-        }
-        else
-        {
-            using (var bgPat = new RadialGradient(
-                        drawingX + drawingWidth / 2, drawingY + drawingHeight / 2, drawingWidth * 0.1,
-                        drawingX + drawingWidth / 2, drawingY + drawingHeight / 2, drawingWidth / 2))
-            {
-                Color lockColor = GetLockColor();
-                Color darkerColor = new Color(lockColor.R * 0.5, lockColor.G * 0.5, lockColor.B * 0.5);
-                bgPat.AddColorStop(0, lockColor);
-                bgPat.AddColorStop(1, darkerColor);
-                ctx.SetSource(bgPat);
-                ctx.Rectangle(drawingX, drawingY, drawingWidth, drawingHeight);
-                ctx.Fill();
-            }
-        }
-        ctx.Restore();
-        DrawMinigameUI(ctx, new ElementBounds() 
-        { 
-            fixedX = drawingX, 
-            fixedY = drawingY, 
-            fixedWidth = drawingWidth, 
-            fixedHeight = drawingHeight 
-        });
+        private const int pinPadding = 32;
 
-        ctx.Restore();
-    }
+        private float[] pinPositions = new float[MaxPinCount];
+        private float[] pinRotations = new float[MaxPinCount];
+        private float pinWidth = 32;
+        private float pinHeight = 128;
 
-    private void DrawMinigameUI(Context ctx, ElementBounds bounds)
-    {
-        double areaX = bounds.fixedX;
-        double areaY = bounds.fixedY;
-        double areaWidth = bounds.fixedWidth;
-        double startY = areaY + 60;
-        double boxSize = 40;
-        double rowGap = 10;
-        int totalRows = (int)Math.Ceiling(numBoxes / (double)MaxBoxesPerRow);
-        int boxIndex = 0;
-        if (totalRows > 0)
-        {
-            int boxesInFirstRow = Math.Min(numBoxes, MaxBoxesPerRow);
-            double spacing = (areaWidth - (boxesInFirstRow * boxSize)) / (boxesInFirstRow + 1);
-            double rowY = startY;
-            for (int col = 0; col < boxesInFirstRow; col++, boxIndex++)
-            {
-                double boxX = areaX + spacing + col * (boxSize + spacing);
-                DrawTumbler(ctx, boxX, rowY, boxSize, boxIndex);
-            }
-        }
-        double barY = startY + boxSize + 10;
-        double meterWidth = areaWidth * 0.8;
-        double meterHeight = 20;
-        double meterX = areaX + (areaWidth - meterWidth) / 2;
-        using (var meterPat = new LinearGradient(meterX, barY, meterX, barY + meterHeight))
-        {
-            meterPat.AddColorStop(0, new Color(0.6, 0.6, 0.6));
-            meterPat.AddColorStop(1, new Color(0.3, 0.3, 0.3));
-            ctx.SetSource(meterPat);
-            ctx.Rectangle(meterX, barY, meterWidth, meterHeight);
-            ctx.Fill();
-        }
-        double hLeft = meterX + (hotspotDisplayCenter - hotspotWidth / 2.0) * meterWidth;
-        double hWidth = hotspotWidth * meterWidth;
-        ctx.Rectangle(hLeft, barY, hWidth, meterHeight);
-        ctx.SetSourceRGBA(0, 1, 0, 0.5);
-        ctx.Fill();
-        double pointerX = meterX + pointerPosition * meterWidth;
-        ctx.Rectangle(pointerX - 2, barY, 4, meterHeight);
-        ctx.SetSourceRGB(1, 1, 1);
-        ctx.Fill();
-        double originalRow1Y = startY + (boxSize + rowGap);
-        double desiredRow1Y = barY + meterHeight + 10;
-        double shift = desiredRow1Y - originalRow1Y;
-        for (int row = 1; row < totalRows; row++)
-        {
-            int boxesInThisRow = (row == totalRows - 1) ? numBoxes - row * MaxBoxesPerRow : MaxBoxesPerRow;
-            double spacing = (areaWidth - (boxesInThisRow * boxSize)) / (boxesInThisRow + 1);
-            double rowY = startY + row * (boxSize + rowGap) + shift;
-            for (int col = 0; col < boxesInThisRow; col++, boxIndex++)
-            {
-                double boxX = areaX + spacing + col * (boxSize + spacing);
-                DrawTumbler(ctx, boxX, rowY, boxSize, boxIndex);
-            }
-        }
-    }
-    private void DrawRoundedRectangle(Context ctx, double x, double y, double width, double height, double radius)
-    {
-        ctx.MoveTo(x + radius, y);
-        ctx.LineTo(x + width - radius, y);
-        ctx.Arc(x + width - radius, y + radius, radius, -Math.PI / 2, 0);
-        ctx.LineTo(x + width, y + height - radius);
-        ctx.Arc(x + width - radius, y + height - radius, radius, 0, Math.PI / 2);
-        ctx.LineTo(x + radius, y + height);
-        ctx.Arc(x + radius, y + height - radius, radius, Math.PI / 2, Math.PI);
-        ctx.LineTo(x, y + radius);
-        ctx.Arc(x + radius, y + radius, radius, Math.PI, 3 * Math.PI / 2);
-        ctx.ClosePath();
-    }
-    private void DrawTumbler(Context ctx, double x, double y, double size, int i)
-    {
-        ctx.Save();
-        if (boxLocked[i])
-        {
-            if (numBoxes > MaxBoxesPerRow && i >= MaxBoxesPerRow)
-            {
-                double snapOffset = 5.0;
-                ctx.Translate(0, snapOffset);
-            }
-            else
-            {
-                double snapOffset = 5.0;
-                ctx.Translate(0, -snapOffset);
-            }
-        }
-        else if (selectedBoxIndex.HasValue && selectedBoxIndex.Value == i && isMouseDown)
-        {
-            double offset = Math.Sin(capi.ElapsedMilliseconds / 100.0) * 2;
-            ctx.Translate(0, offset);
-        }
-        double radius = 5;
-        Color lockColor = GetLockColor();
-        Color lighter = new Color(
-            Math.Min(lockColor.R + 0.2, 1.0),
-            Math.Min(lockColor.G + 0.2, 1.0),
-            Math.Min(lockColor.B + 0.2, 1.0)
-        );
-        Color darker = new Color(
-            lockColor.R * 0.7,
-            lockColor.G * 0.7,
-            lockColor.B * 0.7
-        );
-        if (lockTextureSurface != null && tumblerCropOffsets != null && tumblerCropOffsets.Length > i)
-        {
-            double cropSize = 16.0;
-            double scaleFactor = size / cropSize;
-            using (var pattern = new Cairo.SurfacePattern(lockTextureSurface))
-            {
-                pattern.Matrix = new Cairo.Matrix(
-                    1.0 / scaleFactor, 0,
-                    0, 1.0 / scaleFactor,
-                    -x / scaleFactor + tumblerCropOffsets[i].Item1,
-                    -y / scaleFactor + tumblerCropOffsets[i].Item2
-                );
-                ctx.SetSource(pattern);
-                DrawRoundedRectangle(ctx, x, y, size, size, radius);
-                ctx.FillPreserve();
-            }
-        }
-        else
-        {
-            using (var pat = new LinearGradient(x, y, x, y + size))
-            {
-                pat.AddColorStop(0, lighter);
-                pat.AddColorStop(1, darker);
-                ctx.SetSource(pat);
-                DrawRoundedRectangle(ctx, x, y, size, size, radius);
-                ctx.FillPreserve();
-            }
-        }
-        ctx.SetSourceRGB(0.1, 0.1, 0.1);
-        ctx.Stroke();
-        if (boxLocked[i])
-        {
-            ctx.SetSourceRGBA(0, 1, 0, 0.5);
-            DrawRoundedRectangle(ctx, x, y, size, size, radius);
-            ctx.Fill();
-        }
-        else if (boxFills[i] > 0)
-        {
-            double fillHeight = size * boxFills[i];
-            double fillY = y + (size - fillHeight);
-            using (var pat = new LinearGradient(x, fillY, x, y + size))
-            {
-                pat.AddColorStop(0, new Color(0.5, 0.5, 1));
-                pat.AddColorStop(1, new Color(0, 0, 0.8));
-                ctx.SetSource(pat);
-                DrawRoundedRectangle(ctx, x, fillY, size, fillHeight, radius);
-                ctx.Fill();
-            }
-        }
-        if (boxCycleLocked[i])
-        {
-            float fadeAlpha = cycleLockTimers[i] / cycleActiveDuration;
-            DrawPadlockIcon(ctx, x, y, size, fadeAlpha);
-        }
-        ctx.Restore();
-    }
-    private void DrawPadlockIcon(Context ctx, double x, double y, double size, float alpha)
-    {
-        double offset = -size * 0.05;
-        double bodyWidth = size * 0.6;
-        double bodyHeight = size * 0.4;
-        double bodyX = x + (size - bodyWidth) / 2;
-        double bodyY = y + size * 0.55 + offset;
-        Color metalColor = GetLockColor();
-        ctx.LineWidth = 2;
-        ctx.SetSourceRGBA(metalColor.R, metalColor.G, metalColor.B, alpha);
-        ctx.NewPath();
-        double shackleRadius = bodyWidth / 2;
-        ctx.Arc(x + size / 2, y + size * 0.55 + offset, shackleRadius, Math.PI, 2 * Math.PI);
-        ctx.Stroke();
-        ctx.SetSourceRGB(0, 0, 0);
-        ctx.LineWidth = 1;
-        ctx.NewPath();
-        ctx.Arc(x + size / 2, y + size * 0.55 + offset, shackleRadius, Math.PI, 2 * Math.PI);
-        ctx.Stroke();
-        ctx.SetSourceRGBA(metalColor.R, metalColor.G, metalColor.B, alpha);
-        ctx.Rectangle(bodyX, bodyY, bodyWidth, bodyHeight);
-        ctx.Fill();
-        ctx.SetSourceRGB(0, 0, 0);
-        ctx.LineWidth = 1;
-        ctx.Rectangle(bodyX, bodyY, bodyWidth, bodyHeight);
-        ctx.Stroke();
-        double keyholeCircleRadius = bodyWidth * 0.1;
-        double keyholeCircleCenterX = x + size / 2;
-        double keyholeCircleCenterY = bodyY + bodyHeight * 0.4;
-        ctx.SetSourceRGB(0, 0, 0);
-        ctx.NewPath();
-        ctx.Arc(keyholeCircleCenterX, keyholeCircleCenterY, keyholeCircleRadius, 0, 2 * Math.PI);
-        ctx.Fill();
+        private int CurrentPinCodePos(int index) => (int)Math.Round(pinPositions[index] * (MaxPinCode + 1), 0);
 
-        double slotWidth = keyholeCircleRadius * 0.6;
-        double slotHeight = bodyHeight * 0.25;
-        double slotX = keyholeCircleCenterX - slotWidth / 2;
-        double slotY = keyholeCircleCenterY + keyholeCircleRadius;
-        ctx.Rectangle(slotX, slotY, slotWidth, slotHeight);
-        ctx.Fill();
+        private bool PinIsInPosition(int index)
+        {
+            float bins   = MaxPinCode + 1;
+            float pos    = pinPositions[index] * bins;
+            float target = pinCodes[index];
+            return pinPositions[index] > 0f
+                   && Math.Abs(pos - target) <= (0.5f + ModConfig.Instance.MiniGame.HotspotForgivenessBins);
+        }
+
+        private long updateCallbackId;
+        private float gameTime = 0f;
+        private float tensionWrenchDamageTimer = 0f;
+        private void Update(float dt)
+        {
+            if(!IsOpened())
+            {
+                return;
+            }
+
+            gameTime += dt;
+
+            if (capi.World.Player is not null)
+            {
+                capi.World.Player.Entity.Controls.Sneak = true;
+                CheckForRequiredItems();
+            }
+
+            tensionWrenchDamageTimer += dt;
+            if(tensionWrenchDamageTimer >= 1.0f)
+            {
+                var damage = (float)Math.Floor(tensionWrenchDamageTimer);
+                DamageTensionWrench(difficultyLevel);
+                tensionWrenchDamageTimer-=damage;
+            }
+
+            for (int i = 0; i < pinPositions.Length; ++i)
+            {
+                if (pinStates[i] == PinStates.Locked)
+                {
+                    pinPositions[i] = (float)pinCodes[i] / (float)MaxPinCode;
+                }
+
+                if (pinStates[i] == PinStates.Down)
+                {
+                    pinPositions[i] = (float)Math.Clamp(pinPositions[i] + pinPushSpeed, 0, 1.0);
+                    int codePos = CurrentPinCodePos(i);
+                    bool atHotspot = (codePos == pinCodes[i]);
+                    bool atFalse   = pinFalseSetCodes[i].Contains(codePos);
+                    bool nowAtClickZone = atHotspot || atFalse;
+
+                    if (nowAtClickZone && lastClickPos[i] != codePos)
+                    {
+                        PlayOneShot(atFalse ? sFalse : sHotspot);
+                        lastClickPos[i] = codePos;
+                    }
+                    UpdatePickDepthLerped(dt);
+                    UpdatePickTilt(dt);
+
+                }
+                else if (pinStates[i] == PinStates.Up)
+                {
+                    lastClickPos[i] = -1;
+                    UpdatePickDepthLerped(dt);
+                    UpdatePickTilt(dt);
+                }
+
+                else
+                {
+                    lastClickPos[i] = -1;
+                    UpdatePickDepthLerped(dt);
+                    UpdatePickTilt(dt);
+                }
+            }
+
+            var customDraw = SingleComposer.GetCustomDraw("minigameDraw");
+            customDraw?.Redraw();
+
+            if (pinStates.All(x => x == PinStates.Locked))
+            {
+                OnComplete?.Invoke();
+                capi.Event.EnqueueMainThreadTask(() => TryClose(), "lockpickingclose");
+                return;
+            }
+
+            updateCallbackId = capi.Event.RegisterCallback(Update, 16);
+        }
+        private List<int> CurrentPlayablePins()
+        {
+            var list = new List<int>();
+            for (int i = 0; i < MaxPinCount; i++)
+            {
+                if (!pinInitiallyDisabled[i] && pinStates[i] != PinStates.Locked)
+                    list.Add(i);
+            }
+            return list;
+        }
+        private void RebindPins()
+        {
+            if (pinIsBinding == null) pinIsBinding = new bool[MaxPinCount];
+
+            var playable = CurrentPlayablePins();
+            if (playable.Count <= 1)
+            {
+                foreach (int i in playable) pinIsBinding[i] = false;
+                return;
+            }
+            int nonBindingCount = 0;
+            foreach (int i in playable)
+            {
+                bool bind = Rng.NextDouble() < bindingChance;
+                pinIsBinding[i] = bind;
+                if (!bind) nonBindingCount++;
+            }
+            if (nonBindingCount == 0)
+            {
+                int idx = playable[Rng.Next(playable.Count)];
+                pinIsBinding[idx] = false;
+                nonBindingCount = 1;
+            }
+        }
+        private void UnbindAll()
+        {
+            if (pinIsBinding == null) return;
+            for (int i = 0; i < MaxPinCount; i++) pinIsBinding[i] = false;
+        }
+        private bool IsLastPlayablePin(int pin)
+        {
+            var playable = CurrentPlayablePins();
+            return playable.Count == 1 && playable[0] == pin;
+        }
+
+        private bool ExistsAnyNonBindingOtherThan(int pin)
+        {
+            for (int i = 0; i < MaxPinCount; i++)
+            {
+                if (i == pin) continue;
+                if (!pinInitiallyDisabled[i] && pinStates[i] != PinStates.Locked && pinIsBinding[i] == false)
+                    return true;
+            }
+            return false;
+        }
+        public override bool CaptureRawMouse() => false;
+        public override bool ShouldReceiveMouseEvents() => true;
+
+        private bool pushingPin = false;
+        private const float pinPushSpeed = 0.01f;
+        private float pickPosition = 0.0f;
+
+        public override void OnMouseDown(MouseEvent args)
+        {
+            if (args.Button != EnumMouseButton.Left) return;
+
+            if (pinInitiallyDisabled[pinIndex])
+            {
+                args.Handled = true; base.OnMouseDown(args); return;
+            }
+
+            if (pinStates[pinIndex] == PinStates.Locked)
+            {
+                pinStates[pinIndex] = PinStates.Up;
+                PlayOneShot(sSet);
+                pushingPin = false;
+                args.Handled = true; base.OnMouseDown(args); return;
+            }
+            if (pinStates[pinIndex] != PinStates.Locked)
+            {
+                pinStates[pinIndex] = PinStates.Down;
+                pushingPin = true;
+                sLoopInteract?.Start();
+            }
+
+            args.Handled = true;
+            base.OnMouseDown(args);
+        }
+
+        public override void OnMouseUp(MouseEvent args)
+        {
+            if (args.Button != EnumMouseButton.Left) return;
+
+            int i = pinIndex;
+            bool lockedSet = false;
+
+            if (pinStates[i] == PinStates.Down)
+            {
+                if (PinIsInPosition(i))
+                {
+                    bool canBindHere =
+                        pinIsBinding != null &&
+                        pinIsBinding[i] &&
+                        !IsLastPlayablePin(i) &&
+                        ExistsAnyNonBindingOtherThan(i);
+
+                    if (canBindHere)
+                    {
+                        capi?.TriggerIngameError("thieverymod-pin", "binding",
+                            Lang.Get("thievery:binding-warning", (pinIndex + 1)));
+                        pinStates[i] = PinStates.Still;
+                        pinPositions[i] = 0f;
+                        lastClickPos[i] = -1;
+                        UnbindAll();
+                        RebindPins();
+                        pushingPin = false;
+                        sLoopInteract?.Stop();
+                        args.Handled = true;
+                        base.OnMouseUp(args);
+                        return;
+                    }
+                    pinStates[i] = PinStates.Locked;
+                    PlayOneShot(sSet);
+                    lockedSet = true;
+                    RebindPins();
+                }
+                else
+                {
+                    int codePos = CurrentPinCodePos(i);
+                    bool atFalseHotspot = pinFalseSetCodes[i].Contains(codePos);
+
+                    if (pinRotations[i] == 0.0) DamageLockpick();
+
+                    TryRandomlyUnsetASetPin(atFalseHotspot);
+                }
+            }
+            if (!lockedSet)
+            {
+                pinStates[i] = PinStates.Still;
+                pinPositions[i] = 0f;
+                lastClickPos[i] = -1;
+            }
+
+            pushingPin = false;
+            sLoopInteract?.Stop();
+            args.Handled = true;
+            base.OnMouseUp(args);
+        }
+
+        public override void OnKeyDown(KeyEvent args)
+        {
+            if (args.KeyCode == (int)GlKeys.A)
+            {
+                if (ignoreLeftUntilUp) { args.Handled = true; base.OnKeyDown(args); return; }
+                if (!leftHeld)
+                {
+                    leftHeld = true;
+                    StepSelection(-1);
+                    SingleComposer.GetCustomDraw("minigameDraw")?.Redraw();
+                }
+                args.Handled = true;
+            }
+            else if (args.KeyCode == (int)GlKeys.D)
+            {
+                if (ignoreRightUntilUp) { args.Handled = true; base.OnKeyDown(args); return; }
+
+                if (!rightHeld)
+                {
+                    rightHeld = true;
+                    StepSelection(+1);
+                    SingleComposer.GetCustomDraw("minigameDraw")?.Redraw();
+                }
+                args.Handled = true;
+            }
+
+            base.OnKeyDown(args);
+        }
+
+        public override void OnKeyUp(KeyEvent args)
+        {
+            if (args.KeyCode == (int)GlKeys.A)
+            {
+                leftHeld = false;
+                ignoreLeftUntilUp = false;
+                args.Handled = true;
+            }
+            else if (args.KeyCode == (int)GlKeys.D)
+            {
+                rightHeld = false;
+                ignoreRightUntilUp = false;
+                args.Handled = true;
+            }
+
+            base.OnKeyUp(args);
+        }
+        
+        public override void OnGuiOpened()
+        {
+            base.OnGuiOpened();
+            guiOpenedTime = capi.ElapsedMilliseconds;
+
+            var ctrls = capi.World.Player.Entity.Controls;
+
+            ignoreLeftUntilUp  = ctrls.Left;
+            ignoreRightUntilUp = ctrls.Right;
+
+            leftHeld = rightHeld = false;
+
+            ctrls.Left = ctrls.Right = ctrls.Forward = ctrls.Backward =
+                ctrls.Jump = ctrls.Sprint = ctrls.Up = ctrls.Down = false;
+            
+            if (capi?.World == null || capi.World.Player?.Entity == null)
+            {
+                capi?.Logger.Error("[Lockpicking] World or player missing; closing.");
+                TryClose();
+                return;
+            }
+
+            string lockTypeCode = lockType ?? "game:padlock-iron";
+            LoadAllSounds();
+            ItemStack? pickStack = GetLockpickStackOrDefault();
+            ItemSlot offhandSlot = capi.World.Player.Entity.LeftHandItemSlot;
+            initialActiveSlot  = capi.World.Player.InventoryManager.ActiveHotbarSlot;
+            initialOffhandSlot = capi.World.Player.Entity.LeftHandItemSlot;
+
+            initialActiveCode  = initialActiveSlot?.Itemstack?.Collectible?.Code;
+            initialOffhandCode = initialOffhandSlot?.Itemstack?.Collectible?.Code;
+
+            sessionTokenActive  = Guid.NewGuid().ToString("N");
+            sessionTokenOffhand = Guid.NewGuid().ToString("N");
+            capi.Network.GetChannel("thievery").SendPacket(new StartLockpickSessionPacket {
+                ActiveInventoryId   = initialActiveSlot?.Inventory?.InventoryID,
+                ActiveSlotId        = initialActiveSlot?.Inventory?.GetSlotId(initialActiveSlot) ?? -1,
+                OffhandInventoryId  = initialOffhandSlot?.Inventory?.InventoryID,
+                OffhandSlotId       = initialOffhandSlot?.Inventory?.GetSlotId(initialOffhandSlot) ?? -1,
+                ActiveToken         = sessionTokenActive,
+                OffhandToken        = sessionTokenOffhand
+            });
+            tokenEnforcementActive = false;
+            tokenEnforceStartMs = capi.ElapsedMilliseconds + tokenEnforceDelayMs;
+            MultiTextureMeshRef? pickMesh = null;
+            MultiTextureMeshRef? wrenchMesh = null;
+            MultiTextureMeshRef? lockMesh = null;
+
+            try
+            {
+                pickMesh = capi.TesselatorManager.GetDefaultItemMeshRef(pickStack?.Item);
+                wrenchMesh = capi.TesselatorManager.GetDefaultItemMeshRef(offhandSlot?.Itemstack?.Item);
+                lockMesh = capi.TesselatorManager.GetDefaultItemMeshRef(ResolveItem(capi, lockTypeCode));
+            }
+            catch (Exception e)
+            {
+                capi.Logger.Warning("[Lock UI] Exception creating cached meshes: " + e);
+            }
+
+            lockRenderer = new SingleMeshGuiRenderer(
+                capi,
+                lockMesh, ownsMesh: false,
+                fallback: null,
+                offsetX: -10f, offsetY: 916f, zLift: -1000, scale: 2500f,
+                yawDeg: -158f, pitchDeg: 179f, rollDeg: 0f,
+                pivot: new Vec3f(8f/16f, 1.625f/16f, 8f/16f),
+                renderOrder: 0.92
+            );
+            lockRenderer.AmbientOverride = new Vec3f(1f, 1f, 1f);
+            lockRenderer.SwayEnabled = true;
+            lockRenderer.SwayAmpDeg = 3f;
+            lockRenderer.SwaySpeed = 2f;
+            lockRenderer.SwayAxisWeights = new Vec3f(0.6f, 0.25f, 0f);
+            lockRenderer.SwayPhaseRad = 0f;
+
+            wrenchRenderer = new SingleMeshGuiRenderer(
+                capi,
+                wrenchMesh, ownsMesh: false,
+                fallback: offhandSlot,
+                offsetX: 43f, offsetY: 801f, zLift: -937f, scale: 1411f,
+                yawDeg: 211f, pitchDeg: 70f, rollDeg: 82f,
+                pivot: new Vec3f(8f/16f, 0.75f/16f, 9.5f/16f),
+                renderOrder: 0.90
+            );
+            wrenchRenderer.AmbientOverride = new Vec3f(0.8f, 0.8f, 0.8f);
+            wrenchRenderer.SwayEnabled = true;
+            wrenchRenderer.SwayAmpDeg = 3.0f;
+            wrenchRenderer.SwaySpeed = 0.8f;
+            wrenchRenderer.SwayAxisWeights = new Vec3f(0.3f, 0.9f, 0.1f);
+            wrenchRenderer.SwayPhaseRad = 1.2f;
+            pickRenderer = new SingleMeshGuiRenderer(
+                capi,
+                pickMesh, ownsMesh: false,
+                fallback: capi.World.Player.InventoryManager.ActiveHotbarSlot,
+                offsetX: -78f, offsetY: 690f, zLift: -1036f, scale: 1415f,
+                yawDeg: -229f, pitchDeg: 360f, rollDeg: 2f,
+                pivot: new Vec3f(8f/16f, 0.75f/16f, 9.5f/16f),
+                renderOrder: 0.91
+            );
+            pickRenderer.AmbientOverride = new Vec3f(1.6f, 1.6f, 1.6f);
+            pickRenderer.SwayEnabled = true;
+            pickRenderer.SwayAmpDeg = 3.2f;
+            pickRenderer.SwaySpeed = 1.0f;
+            pickRenderer.SwayAxisWeights = new Vec3f(0.45f, 0.5f, 0f);
+            pickRenderer.SwayPhaseRad = -0.9f;
+            pickPitchBaseDeg = pickRenderer.PitchDeg;
+            pickYawBaseDeg   = pickRenderer.YawDeg;
+            pickRollBaseDeg  = pickRenderer.RollDeg;
+            RecomputePickDepthTargets();
+            SnapPickDepthToTargets();
+            SnapPickTiltToCurrent();
+            capi.Event.RegisterRenderer(wrenchRenderer, EnumRenderStage.Ortho, "thievery-lock-ui-wrench");
+            capi.Event.RegisterRenderer(pickRenderer, EnumRenderStage.Ortho, "thievery-lock-ui-pick");
+            capi.Event.RegisterRenderer(lockRenderer, EnumRenderStage.Ortho, "thievery-lock-ui-lock");
+
+            capi.Input.InWorldAction += OnInWorldAction;
+            capi.World.Player.Entity.Controls.Sneak = true;
+            updateCallbackId = capi.Event.RegisterCallback(Update, 16);
+        }
+        private void RecomputePickDepthTargets()
+        {
+            if (pickRenderer == null) return;
+            int enabledCount = 0;
+            for (int i = 0; i < MaxPinCount; i++) if (!pinInitiallyDisabled[i]) enabledCount++;
+
+            if (enabledCount <= 1)
+            {
+                pickTargetX = pickXBase;
+                pickTargetZ = pickZBase;
+                return;
+            }
+            int rank = 0, seen = 0;
+            for (int i = 0; i < MaxPinCount; i++)
+            {
+                if (pinInitiallyDisabled[i]) continue;
+                if (i == pinIndex) { rank = seen; break; }
+                seen++;
+            }
+
+            float t = (float)rank / (enabledCount - 1);
+            pickTargetX = pickXBase + t * pickXDelta;
+            pickTargetZ = pickZBase + t * pickZDelta;
+        }
+        private void UpdatePickDepthLerped(float dt)
+        {
+            if (pickRenderer == null) return;
+            float t = GameMath.Clamp(dt * pickDepthLerpPerSec, 0f, 1f);
+
+            pickRenderer.OffX  = GameMath.Lerp(pickRenderer.OffX,  pickTargetX, t);
+            pickRenderer.ZLift = GameMath.Lerp(pickRenderer.ZLift, pickTargetZ, t);
+        }
+        private float CurrentActivePush01()
+        {
+            if (pinInitiallyDisabled[pinIndex]) return 0f;
+            if (pinStates[pinIndex] == PinStates.Locked) return 0f;
+            return GameMath.Clamp(pinPositions[pinIndex], 0f, 1f);
+        }
+        private void SnapPickDepthToTargets()
+        {
+            if (pickRenderer == null) return;
+            pickRenderer.OffX  = pickTargetX;
+            pickRenderer.ZLift = pickTargetZ;
+        }
+        private void UpdatePickTilt(float dt)
+        {
+            if (pickRenderer == null) return;
+
+            float push = CurrentActivePush01();
+            float targetPitch = pickPitchBaseDeg + pickPitchMaxDelta * push;
+            float targetYaw   = pickYawBaseDeg   + pickYawMaxDelta   * push;
+            float targetRoll  = pickRollBaseDeg  + pickRollMaxDelta  * push;
+            float tp = GameMath.Clamp(dt * pickTiltLerpPerSec, 0f, 1f);
+            float ty = GameMath.Clamp(dt * pickYawLerpPerSec,  0f, 1f);
+            float tr = GameMath.Clamp(dt * pickRollLerpPerSec, 0f, 1f);
+
+            pickRenderer.PitchDeg = GameMath.Lerp(pickRenderer.PitchDeg, targetPitch, tp);
+            pickRenderer.YawDeg   = GameMath.Lerp(pickRenderer.YawDeg,   targetYaw,   ty);
+            pickRenderer.RollDeg  = GameMath.Lerp(pickRenderer.RollDeg,  targetRoll,  tr);
+        }
+
+
+
+        private void SnapPickTiltToCurrent()
+        {
+            if (pickRenderer == null) return;
+            float push = CurrentActivePush01();
+
+            pickRenderer.PitchDeg = pickPitchBaseDeg + pickPitchMaxDelta * push;
+            pickRenderer.YawDeg   = pickYawBaseDeg   + pickYawMaxDelta   * push;
+            pickRenderer.RollDeg  = pickRollBaseDeg  + pickRollMaxDelta  * push;
+        }
+
+
+        private MultiTextureMeshRef? CachedMeshForItem(ICoreClientAPI capi, Item? item)
+        {
+            if (item == null) return null;
+            return capi.TesselatorManager.GetDefaultItemMeshRef(item);
+        }
+
+        private MultiTextureMeshRef? ManualMeshForItem(ICoreClientAPI capi, Item? item, out bool owns)
+        {
+            owns = false;
+            if (item == null) return null;
+
+            ITexPositionSource tex = capi.Tesselator.GetTextureSource(item, true);
+            capi.Tesselator.TesselateItem(item, out var meshData, tex);
+            if (meshData != null && meshData.VerticesCount > 0)
+            {
+                var mr = capi.Render.UploadMultiTextureMesh(meshData);
+                owns = (mr != null);
+                return mr;
+            }
+            return null;
+        }
+
+        private Item? ResolveItem(ICoreClientAPI capi, string codeOrFull)
+        {
+            var loc = AssetLocation.Create(codeOrFull);
+            if (loc.Domain == null || loc.Domain == "") loc = new AssetLocation("game", loc.Path);
+            return capi.World.GetItem(loc);
+        }
+
+        public override void OnGuiClosed()
+        {
+            capi.Input.InWorldAction -= OnInWorldAction;
+
+            if (wrenchRenderer != null) { capi.Event.UnregisterRenderer(wrenchRenderer, EnumRenderStage.Ortho); wrenchRenderer.Dispose(); wrenchRenderer = null; }
+            if (pickRenderer   != null) { capi.Event.UnregisterRenderer(pickRenderer,   EnumRenderStage.Ortho); pickRenderer.Dispose();   pickRenderer   = null; }
+            if (lockRenderer   != null) { capi.Event.UnregisterRenderer(lockRenderer,   EnumRenderStage.Ortho); lockRenderer.Dispose();   lockRenderer   = null; }
+
+            if (updateCallbackId != 0) { capi.Event.UnregisterCallback(updateCallbackId); updateCallbackId = 0; }
+            StopAndDispose(sLoopInteract); sLoopInteract = null;
+            StopAndDispose(sHotspot);      sHotspot      = null;
+            StopAndDispose(sFalse);        sFalse        = null;
+            StopAndDispose(sSet);          sSet          = null;
+            StopAndDispose(sSelect);       sSelect       = null;
+            if (initialActiveSlot != null || initialOffhandSlot != null)
+            {
+                try {
+                    capi.Network.GetChannel("thievery").SendPacket(new EndLockpickSessionPacket {
+                        ActiveInventoryId  = initialActiveSlot?.Inventory?.InventoryID,
+                        ActiveSlotId       = initialActiveSlot?.Inventory?.GetSlotId(initialActiveSlot) ?? -1,
+                        OffhandInventoryId = initialOffhandSlot?.Inventory?.InventoryID,
+                        OffhandSlotId      = initialOffhandSlot?.Inventory?.GetSlotId(initialOffhandSlot) ?? -1
+                    });
+                } catch { /* ignore */ }
+            }
+            base.OnGuiClosed();
+        }
+
+        private ItemStack? GetLockpickStackOrDefault()
+        {
+            var slot = capi.World.Player.InventoryManager.ActiveHotbarSlot;
+            if (slot?.Itemstack?.Collectible is ItemLockpick)
+            {
+                return slot.Itemstack.Clone();
+            }
+            var loc  = new AssetLocation("thievery", $"lockpick-{DefaultMetal}");
+            var item = capi.World.GetItem(loc);
+            if (item == null)
+            {
+                capi.Logger.Error($"[Lockpicking] Could not find fallback item {loc}. Closing GUI.");
+                return null;
+            }
+            return new ItemStack(item, 1);
+        }
+
+        private void OnInWorldAction(EnumEntityAction action, bool on, ref EnumHandling handled)
+        {
+            switch (action)
+            {
+                case EnumEntityAction.Forward:
+                case EnumEntityAction.Backward:
+                case EnumEntityAction.Left:
+                case EnumEntityAction.Right:
+                case EnumEntityAction.Jump:
+                case EnumEntityAction.Sneak:
+                case EnumEntityAction.Sprint:
+                case EnumEntityAction.Glide:
+                case EnumEntityAction.FloorSit:
+                case EnumEntityAction.Up:
+                case EnumEntityAction.Down:
+                case EnumEntityAction.CtrlKey:
+                case EnumEntityAction.ShiftKey:
+                case EnumEntityAction.InWorldLeftMouseDown:
+                case EnumEntityAction.InWorldRightMouseDown:
+                    handled = EnumHandling.PreventDefault;
+                    break;
+
+                default:
+                    return;
+            }
+            if (action == EnumEntityAction.Sneak && !on)
+            {
+                capi.World.Player.Entity.Controls.Sneak = true;
+            }
+            if (action == EnumEntityAction.InWorldRightMouseDown && on)
+            {
+                var now = capi.ElapsedMilliseconds;
+                if (now - guiOpenedTime > rightClickDelay)
+                {
+                    TryClose();
+                }
+            }
+        }
+        private void TryRandomlyUnsetASetPin(bool wasFalseHotspot)
+        {
+            double p = wasFalseHotspot ? falseUnsetChance : missUnsetChance;
+            if (capi.World.Rand.NextDouble() >= p) return;
+            List<int> candidates = new List<int>();
+            for (int k = 0; k < MaxPinCount; k++)
+            {
+                if (!pinInitiallyDisabled[k] && pinStates[k] == PinStates.Locked)
+                    candidates.Add(k);
+            }
+            if (candidates.Count == 0) return;
+
+            int pick = candidates[capi.World.Rand.Next(candidates.Count)];
+            pinStates[pick] = PinStates.Still;
+            pinPositions[pick] = 0f;
+            lastClickPos[pick] = -1;
+            PlayOneShot(wasFalseHotspot ? sFalse : sSet);
+            capi?.TriggerIngameError("thieverymod-pin", "unset",
+                Lang.Get("thievery:unset-notice", (pick + 1)));
+        }
+
+        private void CheckForRequiredItems()
+        {
+            var p = capi.World?.Player;
+            if (p == null) return;
+
+            var curActiveSlot = p.InventoryManager.ActiveHotbarSlot;
+            var curOffhandSlot = p.Entity.LeftHandItemSlot;
+            if (!tokenEnforcementActive)
+            {
+                bool bothTokensVisible =
+                    curActiveSlot?.Itemstack?.Attributes?.GetString(SessionAttrKey) == sessionTokenActive &&
+                    curOffhandSlot?.Itemstack?.Attributes?.GetString(SessionAttrKey) == sessionTokenOffhand;
+
+                if (bothTokensVisible || capi.ElapsedMilliseconds >= tokenEnforceStartMs)
+                {
+                    tokenEnforcementActive = true;
+                }
+                else
+                {
+                    return;
+                }
+            }
+            bool activeSlotChanged = !object.ReferenceEquals(curActiveSlot, initialActiveSlot);
+            bool offhandSlotChanged = !object.ReferenceEquals(curOffhandSlot, initialOffhandSlot);
+
+            bool activeMissingOrCodeChanged =
+                curActiveSlot?.Itemstack == null ||
+                initialActiveCode == null ||
+                !curActiveSlot.Itemstack.Collectible.Code.Equals(initialActiveCode);
+
+            bool offhandMissingOrCodeChanged =
+                curOffhandSlot?.Itemstack == null ||
+                initialOffhandCode == null ||
+                !curOffhandSlot.Itemstack.Collectible.Code.Equals(initialOffhandCode);
+
+            bool activeTokenMismatch =
+                curActiveSlot?.Itemstack?.Attributes?.GetString(SessionAttrKey) != sessionTokenActive;
+
+            bool offhandTokenMismatch =
+                curOffhandSlot?.Itemstack?.Attributes?.GetString(SessionAttrKey) != sessionTokenOffhand;
+
+            if (activeSlotChanged || offhandSlotChanged ||
+                activeMissingOrCodeChanged || offhandMissingOrCodeChanged ||
+                activeTokenMismatch || offhandTokenMismatch)
+            {
+                capi.TriggerIngameError("thievery-lockui", "items-changed",
+                    Lang.Get("thievery:items-changed-cancel"));
+                TryClose();
+            }
+        }
+
+        private void DamageTensionWrench(float difficultyMultiplier = 1f)
+        {
+            ICoreClientAPI client = capi;
+            EntityAgent entityAgent = client.World.Player.Entity as EntityAgent;
+            if (entityAgent == null) return;
+
+            var offhandSlot = entityAgent.LeftHandItemSlot;
+            if (offhandSlot != null && offhandSlot.Itemstack != null)
+            {
+                string itemCode = offhandSlot.Itemstack.Collectible.Code.Path;
+                if (itemCode.StartsWith("tensionwrench-"))
+                {
+                    int damageAmount = (int)(ModConfig.Instance.MiniGame.TensionWrenchDamageBase * difficultyMultiplier/2);
+
+                    client.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
+                    {
+                        InventoryId = offhandSlot.Inventory.InventoryID,
+                        SlotId = offhandSlot.Inventory.GetSlotId(offhandSlot),
+                        Damage = damageAmount
+                    });
+                }
+            }
+        }
+
+        private void DamageLockpick(float difficultyMultiplier = 1f)
+        {
+            ICoreClientAPI client = capi;
+            var activeSlot = client.World.Player.InventoryManager.ActiveHotbarSlot;
+            if (activeSlot != null && activeSlot.Itemstack != null)
+            {
+                string itemCode = activeSlot.Itemstack.Collectible.Code.Path;
+                if (itemCode.StartsWith("lockpick-"))
+                {
+                    int damageAmount = (int)(ModConfig.Instance.MiniGame.LockpickDamageBase * difficultyMultiplier);
+
+                    client.Network.GetChannel("thievery").SendPacket(new ItemDamagePacket
+                    {
+                        InventoryId = activeSlot.Inventory.InventoryID,
+                        SlotId = activeSlot.Inventory.GetSlotId(activeSlot),
+                        Damage = damageAmount
+                    });
+                }
+            }
+        }
+
+        
+        private ILoadedSound LoadSound(string pathNoExt, bool loop, float volume = 1f, float pitch = 1f)
+        {
+            var pos = new Vec3f((float)bePos.X + 0.5f, (float)bePos.Y + 0.5f, (float)bePos.Z + 0.5f);
+            return capi.World.LoadSound(new SoundParams
+            {
+                Location = new AssetLocation("thievery", pathNoExt),
+                Position = pos,
+                DisposeOnFinish = false,
+                Pitch = pitch,
+                Volume = volume,
+                Range = 16f,
+                ShouldLoop = loop
+            });
+        }
+
+        private void LoadAllSounds()
+        {
+            sLoopInteract = LoadSound("sounds/lockpicking",        loop: true,  volume: 0.1f);
+            sHotspot      = LoadSound("sounds/lockpicking_hotspot",loop: false, volume: 0.9f);
+            sFalse        = LoadSound("sounds/lockpicking_false",  loop: false, volume: 0.9f);
+            sSet          = LoadSound("sounds/lockpicking_set",    loop: false, volume: 0.9f);
+            sSelect       = LoadSound("sounds/lockpicking_select", loop: false, volume: 0.5f);
+        }
+
+        private void StopAndDispose(ILoadedSound snd)
+        {
+            try { snd?.Stop(); } catch { }
+            try { snd?.Dispose(); } catch { }
+        }
+
+        private void PlayOneShot(ILoadedSound snd)
+        {
+            try { snd?.Start(); } catch { }
+        }
+        
     }
 }

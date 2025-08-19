@@ -1,4 +1,5 @@
 ﻿using System;
+using Thievery.Config;
 using Thievery.LockpickAndTensionWrench;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -134,9 +135,9 @@ namespace Thievery.LockAndKey
                 {
                     int durability = slot.Itemstack.Attributes.GetInt("durability", 0);
                     Random rnd = new Random();
-                    if (rnd.NextDouble() < ThieveryModSystem.LoadedConfig.AgedKeyDamageChance)
+                    if (rnd.NextDouble() < ModConfig.Instance.Main.AgedKeyDamageChance)
                     {
-                        bool keyBroken = DamageItem(slot, ThieveryModSystem.LoadedConfig.AgedKeyDamage, byEntity);
+                        bool keyBroken = DamageItem(slot, ModConfig.Instance.Main.AgedKeyDamage, byEntity);
                         if (keyBroken)
                         {
                             if (byEntity.World.Api.Side == EnumAppSide.Client)

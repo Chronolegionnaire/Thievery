@@ -13,7 +13,7 @@ namespace Thievery.LockAndKey
         public event Action<string> OnNameSet;
 
         public KeyNamingDialog(ItemSlot slot, ICoreClientAPI capi)
-            : base("Name Your Key", capi)
+            : base(Lang.Get("thievery:keyname-title"), capi)
         {
             this.slot = slot;
             ElementBounds line = ElementBounds.Fixed(0, 0, 300, 20);
@@ -30,26 +30,21 @@ namespace Thievery.LockAndKey
             SingleComposer = capi.Gui
                 .CreateCompo("keynamingdialog", dialogBounds)
                 .AddShadedDialogBG(bgBounds, true, 5.0, 0.75f)
-                .AddDialogTitleBar("Name Your Key", OnTitleBarClose)
+                .AddDialogTitleBar(Lang.Get("thievery:keyname-title"), OnTitleBarClose)
                 .BeginChildElements(bgBounds)
-                .AddStaticText(Lang.Get("Key Name:"), CairoFont.WhiteDetailText(), line = line.BelowCopy(0, 0, 0, 0))
+                .AddStaticText(Lang.Get("thievery:keyname-label"), CairoFont.WhiteDetailText(), line = line.BelowCopy(0, 0, 0, 0))
                 .AddTextInput(input = input.BelowCopy(0, inputLineY, 0, 0).WithFixedWidth(250), OnTextChanged, CairoFont.WhiteSmallText(), "keyNameInput")
-                .AddSmallButton(Lang.Get("Cancel"), OnCancelButtonClicked, input = input.BelowCopy(0, buttonY, 0, 0).WithFixedSize(100, 30).WithAlignment(EnumDialogArea.LeftFixed))
-                .AddSmallButton(Lang.Get("Save"), OnSaveButtonClicked, input.FlatCopy().WithFixedSize(100, 30).WithAlignment(EnumDialogArea.RightFixed))
+                .AddSmallButton(Lang.Get("thievery:common-cancel"), OnCancelButtonClicked, input = input.BelowCopy(0, buttonY, 0, 0).WithFixedSize(100, 30).WithAlignment(EnumDialogArea.LeftFixed))
+                .AddSmallButton(Lang.Get("thievery:common-save"), OnSaveButtonClicked, input.FlatCopy().WithFixedSize(100, 30).WithAlignment(EnumDialogArea.RightFixed))
                 .EndChildElements()
                 .Compose();
         }
 
         public override string ToggleKeyCombinationCode => null;
 
-        private void OnTitleBarClose()
-        {
-            TryClose();
-        }
+        private void OnTitleBarClose() => TryClose();
 
-        private void OnTextChanged(string text)
-        {
-        }
+        private void OnTextChanged(string text) { }
 
         private bool OnCancelButtonClicked()
         {
@@ -83,7 +78,6 @@ namespace Thievery.LockAndKey
             if (!didSave)
             {
             }
-
             base.OnGuiClosed();
         }
     }

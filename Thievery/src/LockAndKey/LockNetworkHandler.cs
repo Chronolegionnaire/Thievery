@@ -61,5 +61,30 @@ namespace Thievery.LockAndKey
         
         [ProtoMember(2)]
         public string LockUid { get; set; }
+        [ProtoMember(3)]
+        public LockAction Action { get; set; }
+    }
+    [ProtoContract]
+    public class StartLockpickSessionPacket {
+        [ProtoMember(1)] public string ActiveInventoryId { get; set; }
+        [ProtoMember(2)] public int ActiveSlotId { get; set; }
+        [ProtoMember(3)] public string OffhandInventoryId { get; set; }
+        [ProtoMember(4)] public int OffhandSlotId { get; set; }
+        [ProtoMember(5)] public string ActiveToken { get; set; }
+        [ProtoMember(6)] public string OffhandToken { get; set; }
+    }
+
+    [ProtoContract]
+    public class EndLockpickSessionPacket {
+        [ProtoMember(1)] public string ActiveInventoryId { get; set; }
+        [ProtoMember(2)] public int ActiveSlotId { get; set; }
+        [ProtoMember(3)] public string OffhandInventoryId { get; set; }
+        [ProtoMember(4)] public int OffhandSlotId { get; set; }
+    }
+    public enum LockAction
+    {
+        Unlock = 0,
+        Lock   = 1,
+        Toggle = 2
     }
 }

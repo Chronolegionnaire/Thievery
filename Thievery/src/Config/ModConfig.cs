@@ -1,23 +1,43 @@
-﻿using System;
-using Vintagestory.API.Common;
+﻿using Thievery.Config.SubConfigs;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System.Collections.Generic;
+
 
 namespace Thievery.Config;
 
-public static class ModConfig
+[JsonObject(ItemNullValueHandling = NullValueHandling.Ignore)]
+public class ModConfig
 {
-    public static T ReadConfig<T>(ICoreAPI api, string jsonConfig) where T : class, IModConfig
-    {
-        T config = api.LoadModConfig<T>(jsonConfig);
-        if (config == null)
-        {
-            config = Activator.CreateInstance<T>();
-            WriteConfig(api, jsonConfig, config);
-        }
-        return config;
-    }
+    public const string ConfigPath = "ThieveryConfig.json";
 
-    public static void WriteConfig<T>(ICoreAPI api, string jsonConfig, T config) where T : class, IModConfig
-    {
-        api.StoreModConfig(config, jsonConfig);
-    }
+    public static ModConfig Instance { get; internal set; }
+
+    /// <summary>
+    /// The configuration for thirst mechanics
+    /// </summary>
+    public LockpickingMainConfig Main { get; set; } = new();
+
+    /// <summary>
+    /// The configuration for satiety mechanics
+    /// </summary>
+    public LockDifficultyConfig Difficulty { get; set; } = new();
+
+    /// <summary>
+    /// The configuration for the perish rates
+    /// </summary>
+    public LockpickingMiniGameConfig MiniGame { get; set; } = new();
+
+    /// <summary>
+    /// The configuration for heat and cooling mechanics
+    /// </summary>
+    public WorldGenLockingAndReinforcementConfig WorldGen { get; set; } = new();
+    
+    /// <summary>
+    /// The configuration for liquid encumbrance mechanics
+    /// </summary>
+    public StructureBlacklistConfig Blacklist { get; set; } = new();
+
+    [JsonExtensionData]
+    public Dictionary<string, JToken> LegacyData { get; set; }
 }

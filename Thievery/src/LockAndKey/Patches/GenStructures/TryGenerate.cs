@@ -37,13 +37,11 @@ namespace Thievery.Patches
         {
             if (!__result || __instance.LastPlacedSchematicLocation == null)
                 return;
-            
-            var cfg   = ThieveryModSystem.LoadedConfig;
             string gen   = __instance.Code.ToString();
             string schem = __instance.LastPlacedSchematic.FromFileName;
             string key   = $"{gen}:{schem}";
 
-            bool isBlacklisted = cfg.StructureBlacklist
+            bool isBlacklisted = ModConfig.Instance.Blacklist.StructureBlacklist
                 .Any(s => s.Equals(key, StringComparison.OrdinalIgnoreCase));
             if (isBlacklisted)
             { return;
@@ -51,11 +49,10 @@ namespace Thievery.Patches
             HashSet<string> processedContainerIds = new HashSet<string>();
             var api = worldForCollectibleResolve.Api;
             var modSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
-            var config = ThieveryModSystem.LoadedConfig;
             var lockManager = modSystem?.LockManager;
             var reinforcementSystem = api.ModLoader.GetModSystem<ModSystemBlockReinforcement>();
 
-            if (lockManager == null || reinforcementSystem == null || config == null)
+            if (lockManager == null || reinforcementSystem == null)
             {
                 return;
             }
@@ -124,13 +121,13 @@ namespace Thievery.Patches
                             if (hasReinforcementBehavior)
                             {
                                 double roll = rand.NextDouble();
-                                if (roll < config.StructureLockChance)
+                                if (roll < ModConfig.Instance.WorldGen.StructureLockChance)
                                 {
                                     if (!isCollapsedChest)
                                     {
                                         int strength = rand.Next(
-                                            config.StructureMinReinforcement,
-                                            config.StructureMaxReinforcement + 1
+                                            ModConfig.Instance.WorldGen.StructureMinReinforcement,
+                                            ModConfig.Instance.WorldGen.StructureMaxReinforcement + 1
                                         );
 
                                         int chunkX = pos.X >> 5;
@@ -150,7 +147,7 @@ namespace Thievery.Patches
                                         int localY = pos.Y & 31;
                                         int localZ = pos.Z & 31;
                                         int localIndex = (localY << 16) | (localZ << 8) | localX;
-                                        string selectedPadlock = GetWeightedPadlock(rand, padlockTypes, config);
+                                        string selectedPadlock = GetWeightedPadlock(rand, padlockTypes);
 
                                         var bre = new BlockReinforcement
                                         {
@@ -283,8 +280,8 @@ namespace Thievery.Patches
                                 }
                             }
                         }
-                        else if ((config.ReinforcedBuildingBlocks || config.ReinforceAllBlocks) && 
-                                 (config.ReinforceAllBlocks ? MatchesReinforcedBuildingBlockExtended(blockCode) : MatchesReinforcedBuildingBlock(blockCode)))
+                        else if ((ModConfig.Instance.WorldGen.ReinforcedBuildingBlocks || ModConfig.Instance.WorldGen.ReinforceAllBlocks) && 
+                                 (ModConfig.Instance.WorldGen.ReinforceAllBlocks ? MatchesReinforcedBuildingBlockExtended(blockCode) : MatchesReinforcedBuildingBlock(blockCode)))
                         {
                             bool hasReinforcementBehavior = block.HasBehavior<BlockBehaviorReinforcable>(false);
                             if (!hasReinforcementBehavior)
@@ -293,8 +290,8 @@ namespace Thievery.Patches
                             }
 
                             int strength = rand.Next(
-                                config.StructureMinReinforcement,
-                                config.StructureMaxReinforcement + 1
+                                ModConfig.Instance.WorldGen.StructureMinReinforcement,
+                                ModConfig.Instance.WorldGen.StructureMaxReinforcement + 1
                             );
 
                             int chunkX = pos.X >> 5;
@@ -419,19 +416,19 @@ namespace Thievery.Patches
             }
         }
 
-        private static string GetWeightedPadlock(Random rand, string[] padlockTypes, Config.Config config)
+        private static string GetWeightedPadlock(Random rand, string[] padlockTypes)
         {
             float maxDuration = 0;
             Dictionary<string, float> weights = new Dictionary<string, float>();
             foreach (string padlock in padlockTypes)
             {
-                float duration = GetPadlockDuration(padlock, config);
+                float duration = GetPadlockDuration(padlock);
                 if (duration > maxDuration)
                     maxDuration = duration;
             }
             foreach (string padlock in padlockTypes)
             {
-                float duration = GetPadlockDuration(padlock, config);
+                float duration = GetPadlockDuration(padlock);
                 weights[padlock] = maxDuration / duration;
             }
             float totalWeight = 0;
@@ -452,46 +449,46 @@ namespace Thievery.Patches
             return padlockTypes[0];
         }
 
-        private static float GetPadlockDuration(string padlockCode, Config.Config config)
+        private static float GetPadlockDuration(string padlockCode)
         {
             switch (padlockCode)
             {
                 case "game:padlock-blackbronze":
-                    return config.BlackBronzePadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.BlackBronzePadlockDifficulty;
                 case "game:padlock-bismuthbronze":
-                    return config.BismuthBronzePadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.BismuthBronzePadlockDifficulty;
                 case "game:padlock-tinbronze":
-                    return config.TinBronzePadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.TinBronzePadlockDifficulty;
                 case "game:padlock-iron":
-                    return config.IronPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.IronPadlockDifficulty;
                 case "game:padlock-meteoriciron":
-                    return config.MeteoricIronPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.MeteoricIronPadlockDifficulty;
                 case "game:padlock-steel":
-                    return config.SteelPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.SteelPadlockDifficulty;
                 case "game:padlock-copper":
-                    return config.CopperPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.CopperPadlockDifficulty;
                 case "game:padlock-nickel":
-                    return config.NickelPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.NickelPadlockDifficulty;
                 case "game:padlock-silver":
-                    return config.SilverPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.SilverPadlockDifficulty;
                 case "game:padlock-gold":
-                    return config.GoldPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.GoldPadlockDifficulty;
                 case "game:padlock-titanium":
-                    return config.TitaniumPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.TitaniumPadlockDifficulty;
                 case "game:padlock-lead":
-                    return config.LeadPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.LeadPadlockDifficulty;
                 case "game:padlock-zinc":
-                    return config.ZincPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.ZincPadlockDifficulty;
                 case "game:padlock-tin":
-                    return config.TinPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.TinPadlockDifficulty;
                 case "game:padlock-chromium":
-                    return config.ChromiumPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.ChromiumPadlockDifficulty;
                 case "game:padlock-cupronickel":
-                    return config.CupronickelPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.CupronickelPadlockDifficulty;
                 case "game:padlock-electrum":
-                    return config.ElectrumPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.ElectrumPadlockDifficulty;
                 case "game:padlock-platinum":
-                    return config.PlatinumPadlockDifficulty;
+                    return ModConfig.Instance.Difficulty.PlatinumPadlockDifficulty;
                 default:
                     return 60;
             }
