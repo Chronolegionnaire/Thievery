@@ -1,10 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
-        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
-        <OutputPath>bin\$(Configuration)\Mods\mod</OutputPath>
-    </PropertyGroup>
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+	<OutputPath>bin\$(Configuration)\Mods\mod</OutputPath>
+
+    <!-- Force x64 build and disable 32-bit preference -->
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+	<GenerateDocumentationFile>True</GenerateDocumentationFile>
+  </PropertyGroup>
 
     <ItemGroup>
         <Reference Include="CarryOn">
@@ -69,13 +74,17 @@
         </Reference>
     </ItemGroup>
 
-    <ItemGroup>
-        <Content Include="assets\**">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-        <Content Include="modinfo.json">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
+  <ItemGroup>
+    <Content Include="assets\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="modinfo.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="src\LockAndKey\Patches\BlockSchematic\" />
+  </ItemGroup>
 
 </Project>

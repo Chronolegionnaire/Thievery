@@ -10,14 +10,13 @@
 		"metal": [16,16]
 	},
 	"textures": {
-		"metal": "game:block/metal/ingot/blackbronze"
 	},
 	"elements": [
 		{
 			"name": "Cube12",
 			"from": [ 7.75, 0.5, 7.5 ],
 			"to": [ 8.25, 1.0, 10.8 ],
-			"rotationOrigin": [ 9.0, 0.5, 7.5 ],
+			"rotationOrigin": [ 8.0, 0.75, 9.5 ],
 			"faces": {
 				"north": { "texture": "#metal", "uv": [ 0.0, 0.0, 0.5, 0.5 ] },
 				"east": { "texture": "#metal", "uv": [ 0.0, 0.0, 3.0, 0.5 ] },

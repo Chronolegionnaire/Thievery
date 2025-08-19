@@ -1,11 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using CarryOn;
 using HarmonyLib;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using ProtoBuf;
 using Thievery.Config;
 using Thievery.LockAndKey;
 using Thievery.LockpickAndTensionWrench;
@@ -14,10 +11,8 @@ using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
-using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
-using XLib.XLeveling;
 
 namespace Thievery
 {
@@ -30,18 +25,21 @@ namespace Thievery
         public LockpickHudElement LockpickHudElement => lockpickHudElement;
         public IClientNetworkChannel clientChannel;
         private IServerNetworkChannel serverChannel;
-        public static Config.Config LoadedConfig { get; set; }
         private ConfigLibCompatibility _configLibCompatibility;
         private XLibSkills xLibSkills;
         private ICoreServerAPI _serverApi;
         private ICoreClientAPI _clientApi;
-        public override void StartPre(ICoreAPI _api)
+        private const string SessionAttrKey = "thievery.lockpickSessionToken";
+        public const string HarmonyID = "com.chronolegionnaire.thievery";
+        public override void StartPre(ICoreAPI api)
         {
-            base.StartPre(_api);
-            var initConfig = new InitConfig();
-            harmony = new Harmony("com.chronolegionnaire.thievery");
-            initConfig.LoadConfig(_api);
-            harmony.PatchAll();
+            base.StartPre(api);
+            ConfigManager.EnsureModConfigLoaded(api);
+            if (!Harmony.HasAnyPatches(HarmonyID))
+            {
+                harmony = new Harmony(HarmonyID);
+                harmony.PatchAll();
+            }
             /*if (api.ModLoader.IsModEnabled("xlib") || api.ModLoader.IsModEnabled("xlibpatch"))
             {
                 xLibSkills = new XLibSkills();
@@ -64,10 +62,6 @@ namespace Thievery
         public override void StartServerSide(ICoreServerAPI Api)
         {
             base.StartServerSide(Api);
-            string configJson = JsonConvert.SerializeObject(LoadedConfig, Formatting.Indented);
-            byte[] configBytes = System.Text.Encoding.UTF8.GetBytes(configJson);
-            string base64Config = Convert.ToBase64String(configBytes);
-            api.World.Config.SetString("ThieveryConfig", base64Config);
             LockManager = new LockManager(api);
             ICoreServerAPI sapi = api as ICoreServerAPI;
             _serverApi = Api;
@@ -79,6 +73,8 @@ namespace Thievery
                 .RegisterMessageType<LockPickCompletePacket>()
                 .RegisterMessageType<ItemDamagePacket>()
                 .RegisterMessageType<ItemDestroyedPacket>()
+                .RegisterMessageType<StartLockpickSessionPacket>()
+                .RegisterMessageType<EndLockpickSessionPacket>()
                 .SetMessageHandler<TransformMoldPacket>(OnTransformMoldRequest)
                 .SetMessageHandler<SyncKeyAttributesPacket>(OnSyncKeyAttributesPacket)
                 .SetMessageHandler<KeyNameUpdatePacket>((player, packet) =>
@@ -89,7 +85,9 @@ namespace Thievery
                     slot.MarkDirty();
                 })
                 .SetMessageHandler<LockPickCompletePacket>(OnLockPickCompletePacket)
-                .SetMessageHandler<ItemDamagePacket>(OnItemDamagePacketReceived);;
+                .SetMessageHandler<ItemDamagePacket>(OnItemDamagePacketReceived)
+                .SetMessageHandler<StartLockpickSessionPacket>(OnStartLockpickSession)
+                .SetMessageHandler<EndLockpickSessionPacket>(OnEndLockpickSession);
             if (api.ModLoader.IsModEnabled("carryon"))
             {
                 var carrySystem = Api.ModLoader.GetModSystem("CarrySystem");
@@ -107,35 +105,15 @@ namespace Thievery
             }
         }
 
-        public override void StartClientSide(ICoreClientAPI Api)
+        public override void StartClientSide(ICoreClientAPI api)
         {
-            base.StartClientSide(Api);
-            LockManager = new LockManager(Api);
-            lockpickHudElement = new LockpickHudElement(Api);
-            _clientApi = Api;
-            string base64Config = api.World.Config.GetString("ThieveryConfig", "");
-            if (!string.IsNullOrWhiteSpace(base64Config))
-            {
-                try
-                {
-                    byte[] configBytes = Convert.FromBase64String(base64Config);
-                    string configJson = System.Text.Encoding.UTF8.GetString(configBytes);
-                    LoadedConfig = JsonConvert.DeserializeObject<Config.Config>(configJson);
-                }
-                catch (Exception ex)
-                {
-                    api.Logger.Error("Failed to deserialize Thievery config: " + ex);
-                    LoadedConfig = new Config.Config();
-                }
-            }
-            else
-            {
-                api.Logger.Warning("Thievery config not found in world config; using defaults.");
-                LoadedConfig = new Config.Config();
-            }
-            Api.Event.RegisterRenderer(lockpickHudElement, EnumRenderStage.Ortho, "lockpickhud");
-            _configLibCompatibility = new ConfigLibCompatibility((ICoreClientAPI)api);
-            clientChannel = Api.Network.RegisterChannel("thievery")
+            base.StartClientSide(api);
+            LockManager = new LockManager(api);
+            lockpickHudElement = new LockpickHudElement(api);
+            _clientApi = api;
+            if(api.ModLoader.IsModEnabled("configlib")) ConfigLibCompatibility.Init(api);
+            api.Event.RegisterRenderer(lockpickHudElement, EnumRenderStage.Ortho, "lockpickhud");
+            clientChannel = api.Network.RegisterChannel("thievery")
                 .RegisterMessageType<PickProgressPacket>()
                 .RegisterMessageType<TransformMoldPacket>()
                 .RegisterMessageType<KeyNameUpdatePacket>()
@@ -143,6 +121,8 @@ namespace Thievery
                 .RegisterMessageType<LockPickCompletePacket>()
                 .RegisterMessageType<ItemDamagePacket>()
                 .RegisterMessageType<ItemDestroyedPacket>()
+                .RegisterMessageType<StartLockpickSessionPacket>()
+                .RegisterMessageType<EndLockpickSessionPacket>()
                 .SetMessageHandler<PickProgressPacket>(OnPickProgressReceived)
                 .SetMessageHandler<ItemDestroyedPacket>(OnItemDestroyedReceived);;
         }
@@ -190,7 +170,8 @@ namespace Thievery
         }
         public override void Dispose()
         {
-            harmony.UnpatchAll("com.thieverymod");
+            harmony.UnpatchAll(HarmonyID);
+            ConfigManager.UnloadModConfig();
             base.Dispose();
         }
 
@@ -257,19 +238,20 @@ namespace Thievery
         private void OnLockPickCompletePacket(IServerPlayer player, LockPickCompletePacket packet)
         {
             var lockData = LockManager.GetLockData(packet.BlockPos);
-            if (lockData != null && lockData.IsLocked)
+            if (lockData == null) return;
+            bool newState = lockData.IsLocked;
+            switch (packet.Action)
             {
-                LockManager.SetLock(packet.BlockPos, lockData.LockUid, false);
-                _serverApi.World.PlaySoundAt(
-                    new AssetLocation("thievery:sounds/lock"),
-                    packet.BlockPos,
-                    0,
-                    null,
-                    true,
-                    32f,
-                    1f
-                );
+                case LockAction.Toggle:  newState = !lockData.IsLocked; break;
+                case LockAction.Lock:    newState = true;               break;
+                case LockAction.Unlock:  newState = false;              break;
             }
+
+            LockManager.SetLock(packet.BlockPos, lockData.LockUid, newState);
+            _serverApi.World.PlaySoundAt(
+                new AssetLocation("thievery:sounds/lock"),
+                packet.BlockPos, 0, null, true, 32f, 1f
+            );
         }
         private void OnCarryOnRestoreBlockEntity(BlockEntity blockEntity, ITreeAttribute blockEntityData, bool dropped)
         {
@@ -284,20 +266,27 @@ namespace Thievery
             var inventory = player.InventoryManager.GetInventory(packet.InventoryId);
             if (inventory == null) return;
             if (packet.SlotId < 0 || packet.SlotId >= inventory.Count) return;
+
             var slot = inventory[packet.SlotId];
             if (slot?.Itemstack == null) return;
+            string existingToken = slot.Itemstack.Attributes.GetString(SessionAttrKey, null);
+
             int durability = slot.Itemstack.Attributes.GetInt("durability", 0);
             int maxDurability = slot.Itemstack.Collectible.Attributes?["durability"]?.AsInt(0) ?? 0;
             bool willDestroy = durability <= packet.Damage;
+
             slot.Itemstack.Collectible.DamageItem(player.Entity.World, player.Entity, slot, packet.Damage);
+
             if (willDestroy || slot.Itemstack == null)
             {
-                serverChannel.SendPacket(new ItemDestroyedPacket { 
-                    PlayerUid = player.PlayerUID 
-                }, player);
+                serverChannel.SendPacket(new ItemDestroyedPacket { PlayerUid = player.PlayerUID }, player);
+                return;
             }
-    
-            slot.MarkDirty();
+            if (!string.IsNullOrEmpty(existingToken))
+            {
+                slot.Itemstack.Attributes.SetString(SessionAttrKey, existingToken);
+                slot.MarkDirty();
+            }
         }
         private void OnItemDestroyedReceived(ItemDestroyedPacket packet)
         {
@@ -318,6 +307,39 @@ namespace Thievery
                 LockpickHudElement.CircleVisible = false;
                 LockpickHudElement.CircleProgress = 0f;
             }
+        }
+        private void OnStartLockpickSession(IServerPlayer player, StartLockpickSessionPacket p)
+        {
+            void Stamp(string invId, int slotId, string token)
+            {
+                var inv = player.InventoryManager.GetInventory(invId);
+                var slot = inv?.ElementAtOrDefault(slotId);
+                if (slot?.Itemstack == null || string.IsNullOrEmpty(token)) return;
+                var code = slot.Itemstack.Collectible?.Code?.Path ?? "";
+                if (!(code.StartsWith("lockpick-") || code.StartsWith("tensionwrench-"))) return;
+
+                slot.Itemstack.Attributes.SetString(SessionAttrKey, token);
+                slot.MarkDirty();
+            }
+
+            Stamp(p.ActiveInventoryId,  p.ActiveSlotId,  p.ActiveToken);
+            Stamp(p.OffhandInventoryId, p.OffhandSlotId, p.OffhandToken);
+        }
+
+        private void OnEndLockpickSession(IServerPlayer player, EndLockpickSessionPacket p)
+        {
+            void Clear(string invId, int slotId)
+            {
+                var inv = player.InventoryManager.GetInventory(invId);
+                var slot = inv?.ElementAtOrDefault(slotId);
+                if (slot?.Itemstack == null) return;
+
+                slot.Itemstack.Attributes.RemoveAttribute(SessionAttrKey);
+                slot.MarkDirty();
+            }
+
+            Clear(p.ActiveInventoryId,  p.ActiveSlotId);
+            Clear(p.OffhandInventoryId, p.OffhandSlotId);
         }
     }
 }

@@ -1,5 +1,6 @@
 ﻿using System;
 using HarmonyLib;
+using Thievery.Config;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 
@@ -34,7 +35,7 @@ namespace Thievery.LockAndKey.Patches.BlockBehaviorLockable
 
             if (lockData?.IsLocked == true)
             {
-                if (ThieveryModSystem.LoadedConfig.OwnerExempt && lockManager.IsPlayerAuthorized(pos, byPlayer))
+                if (ModConfig.Instance.Main.OwnerExempt && lockManager.IsPlayerAuthorized(pos, byPlayer))
                 {
                     return true;
                 }
