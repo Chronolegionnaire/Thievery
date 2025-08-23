@@ -76,7 +76,7 @@ public class BlockEntityKeyMold : BlockEntityToolMold
       if (this.localCapi != null && !this.Shattered)
       {
         this.localCapi.Event.RegisterRenderer(
-          new ToolMoldRenderer(this, this.localCapi, this.fillQuadsByLevel),
+          new ToolMoldRenderer(this.Pos, this.localCapi, this.fillQuadsByLevel),
           EnumRenderStage.Opaque,
           "toolmoldrenderer"
         );
