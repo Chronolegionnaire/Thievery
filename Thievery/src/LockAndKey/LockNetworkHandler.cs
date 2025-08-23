@@ -11,8 +11,12 @@ namespace Thievery.LockAndKey
 
         [ProtoMember(2)]
         public bool IsLocked { get; set; }
+
         [ProtoMember(3)]
         public string LockType { get; set; }
+
+        [ProtoMember(4)]
+        public long LockoutUntilMs { get; set; }
     }
     public static class ThieveryPacketIds
     {
@@ -80,6 +84,38 @@ namespace Thievery.LockAndKey
         [ProtoMember(2)] public int ActiveSlotId { get; set; }
         [ProtoMember(3)] public string OffhandInventoryId { get; set; }
         [ProtoMember(4)] public int OffhandSlotId { get; set; }
+    }
+    [ProtoContract]
+    public class LockPickLockoutPacket
+    {
+        [ProtoMember(1)]
+        public BlockPos BlockPos { get; set; }
+
+        [ProtoMember(2)]
+        public string LockUid { get; set; }
+
+        [ProtoMember(3)]
+        public long LockoutUntilMs { get; set; }
+    }
+    [ProtoContract]
+    public class WorldgenPickRewardPacket
+    {
+        [ProtoMember(1)]
+        public BlockPos BlockPos;
+        [ProtoMember(2)]
+        public string LockUid;
+        [ProtoMember(3)]
+        public string LockType;
+    }
+    [ProtoContract]
+    public class LockpickingXpAwardPacket
+    {
+        [ProtoMember(1)]
+        public BlockPos BlockPos; // where the lock is
+        [ProtoMember(2)]
+        public string LockUid;    // identity
+        [ProtoMember(3)]
+        public string LockType;   // e.g. "padlock-steel"
     }
     public enum LockAction
     {

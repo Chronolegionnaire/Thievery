@@ -45,7 +45,7 @@ namespace Thievery.src.LockpickAndTensionWrench
         private float pickRollMaxDelta   = -20f;
         private float pickRollLerpPerSec = 12f;
 
-        private ILoadedSound sLoopInteract, sHotspot, sFalse, sSet, sSelect;
+        private ILoadedSound sLoopInteract, sHotspot, sFalse, sSet, sSelect, sBreak;
         
         private HashSet<int>[] pinFalseSetCodes;
         private int[] lastClickPos;
@@ -65,7 +65,29 @@ namespace Thievery.src.LockpickAndTensionWrench
         private double bindingChance;  
         private double D01 => GameMath.Clamp((difficultyLevel - 10) / 85.0, 0.0, 1.0);
         private bool[] pinIsBinding;
+        private int FreeProbeUses
+        {
+            get
+            {
+                int baseFree = ModConfig.Instance?.MiniGame?.ProbeFreeUses ?? 3;
+                if (baseFree == -1) return int.MaxValue;
 
+                return Math.Max(0, baseFree);
+            }
+        }
+
+        private int probeUses = 0;
+        private double probeBreakAccum = 0.0;
+        private double ProbeBreakChanceIncrement =>
+            Vintagestory.API.MathTools.GameMath.Clamp(
+                ModConfig.Instance?.MiniGame?.ProbeBreakChanceIncrement ?? 0.18, 0.0, 1.0);
+        private long LockoutMs =>
+            (long)Math.Max(1, (ModConfig.Instance?.MiniGame?.ProbeLockoutMinutes ?? 10)) * 60L * 1000L;
+        private long lastProbeMs = 0;
+        private const long probeCooldownMs = 150;
+        private string currentLockUid;
+        private string currentLockType;
+        private bool initialWrenchDamageApplied = false;
         private Random Rng => capi?.World?.Rand ?? Random.Shared;
         public override bool ShouldReceiveKeyboardEvents() => true;
         enum PinStates
@@ -101,7 +123,23 @@ namespace Thievery.src.LockpickAndTensionWrench
         { "platinum", new Color(0.9, 0.9, 1.0) }
     };
 
+        private int RemainingFreeProbes
+        {
+            get
+            {
+                if (FreeProbeUses == int.MaxValue) return int.MaxValue;
+                return Math.Max(0, FreeProbeUses - probeUses);
+            }
+        }
+        private double NextProbeBreakChance01()
+        {
+            if (FreeProbeUses == int.MaxValue) return 0.0;
+            if (probeUses + 1 <= FreeProbeUses) return 0.0;
 
+            double next = Math.Clamp(probeBreakAccum + ProbeBreakChanceIncrement, 0.0, 1.0);
+            return next;
+        }
+        private string FormatPercent(double p01) => $"{Math.Clamp((int)Math.Round(p01 * 100.0), 0, 100)}%";
         private ImageSurface lockTextureSurface;
         private Color GetLockColor()
         {
@@ -119,7 +157,8 @@ namespace Thievery.src.LockpickAndTensionWrench
             ICoreClientAPI capi,
             int padlockDifficulty,
             bool bindingOrder,
-            string lockType)
+            string lockType,
+            string lockUid = null)
             : base(dialogTitle, blockEntityPos, capi)
         {
             this.capi = capi;
@@ -127,7 +166,8 @@ namespace Thievery.src.LockpickAndTensionWrench
             this.difficultyLevel = padlockDifficulty;
             this.lockType = lockType;
             this.bePos = blockEntityPos;
-
+            this.currentLockType = lockType;
+            this.currentLockUid  = lockUid ?? "";
             SetupDifficultyScaling();
             SetupDialog();
             SetupGame();
@@ -166,6 +206,7 @@ namespace Thievery.src.LockpickAndTensionWrench
                 pinBindingOrder = Enumerable.Range(0, MaxPinCount).ToArray();
                 GameMath.Shuffle(Random.Shared, pinBindingOrder);
             }
+
             int baseFalseSetsPerPin = (int)GameMath.Clamp(Math.Floor(difficultyLevel / 30.0), 0, MaxPinCode - 1);
 
             pinFalseSetCodes = new HashSet<int>[MaxPinCount];
@@ -177,6 +218,7 @@ namespace Thievery.src.LockpickAndTensionWrench
                 lastClickPos[i] = -1;
 
                 if (pinInitiallyDisabled[i]) continue;
+
                 int desiredFalseSets = baseFalseSetsPerPin + (capi.World.Rand.NextDouble() < 0.3 ? 1 : 0);
                 desiredFalseSets = GameMath.Clamp(desiredFalseSets, 0, MaxPinCode - 1);
 
@@ -187,10 +229,12 @@ namespace Thievery.src.LockpickAndTensionWrench
                     if (code != pinCodes[i]) pinFalseSetCodes[i].Add(code);
                 }
             }
+
             bindingChance = GameMath.Clamp(0.30 + D01 * 0.45, 0.30, 0.75);
 
             pinIsBinding = new bool[MaxPinCount];
             RebindPins();
+
             missUnsetChance = GameMath.Clamp(0.15 + D01 * 0.30, 0.05, 0.60);
             falseUnsetChance = GameMath.Clamp(0.35 + D01 * 0.40, 0.20, 0.85);
         }
@@ -225,7 +269,7 @@ namespace Thievery.src.LockpickAndTensionWrench
 
         private void SetupDialog()
         {
-            ElementBounds dialogBounds = ElementBounds.Fixed(0, 0, dialogWidth, dialogHeight)
+            ElementBounds dialogBounds = ElementBounds.Fixed(0, -60, dialogWidth, dialogHeight)
                 .WithAlignment(EnumDialogArea.CenterMiddle);
             ElementBounds elementBounds = ElementBounds.Fixed(0, 0, dialogWidth, dialogHeight)
                 .WithAlignment(EnumDialogArea.CenterMiddle);
@@ -248,17 +292,71 @@ namespace Thievery.src.LockpickAndTensionWrench
         }
 
         private float lastUpdateMs;
+
         private void OnMinigameDraw(Context ctx, ImageSurface surface, ElementBounds elementBounds)
         {
             ctx.Save();
+
             long currentMs = capi.ElapsedMilliseconds;
-            float deltaTime = (currentMs - lastUpdateMs) / 1000f;
             lastUpdateMs = currentMs;
-            float timeSec = currentMs / 1000f;
+            const double pad = 8;
+            const double lineH = 18;
+            const double panelW = 220;
+            double panelX = dialogWidth  * 0.42;
+            double panelY = 0;
+            var lines = new List<(string label, string value)>();
+
+            if (FreeProbeUses != int.MaxValue)
+            {
+                int remain = RemainingFreeProbes;
+                lines.Add((Lang.Get("thievery:gui-freeprobes"), remain.ToString()));
+            }
+            string pct = FormatPercent(NextProbeBreakChance01());
+            lines.Add((Lang.Get("thievery:gui-lockbreakchance"), pct));
+            double panelH = pad * 2 + lines.Count * lineH;
+            DrawRect(ctx, panelX, panelY, panelW, panelH, 8);
+            ctx.SetSourceRGBA(0, 0, 0, 0.55);
+            ctx.Fill();
+            DrawRect(ctx, panelX, panelY, panelW, panelH, 8);
+            ctx.SetSourceRGBA(0, 0, 0, 0.08);
+            ctx.Stroke();
+            ctx.SelectFontFace("Goudament", FontSlant.Normal, FontWeight.Bold);
+            ctx.SetFontSize(16);
+
+            double textXLabel = panelX + pad;
+            double textXValue = panelX + panelW - pad;
+            double textY = panelY + pad + 14;
+
+            foreach (var (label, value) in lines)
+            {
+                ctx.SetSourceRGBA(0.913, 0.867, 0.808, 1.0);
+                ShowTextLeft(ctx, label, textXLabel, textY);
+                ctx.SetSourceRGBA(0.913, 0.867, 0.808, 1.0);
+                ShowTextRight(ctx, value, textXValue, textY);
+
+                textY += lineH;
+            }
+
             ctx.Restore();
         }
+        private void DrawRect(Context ctx, double x, double y, double w, double h, double r)
+        {
+            ctx.Rectangle(x, y, w, h);
+            ctx.SetSourceRGBA(0.30, 0.24, 0.12, 0.4);
+            ctx.FillPreserve();
+        }
+        private void ShowTextLeft(Context ctx, string text, double x, double baselineY)
+        {
+            ctx.MoveTo(x, baselineY);
+            ctx.ShowText(text);
+        }
 
-        private const int pinPadding = 32;
+        private void ShowTextRight(Context ctx, string text, double rightX, double baselineY)
+        {
+            TextExtents te = ctx.TextExtents(text);
+            ctx.MoveTo(rightX - te.XAdvance, baselineY);
+            ctx.ShowText(text);
+        }
 
         private float[] pinPositions = new float[MaxPinCount];
         private float[] pinRotations = new float[MaxPinCount];
@@ -277,7 +375,6 @@ namespace Thievery.src.LockpickAndTensionWrench
         }
 
         private long updateCallbackId;
-        private float gameTime = 0f;
         private float tensionWrenchDamageTimer = 0f;
         private void Update(float dt)
         {
@@ -285,8 +382,6 @@ namespace Thievery.src.LockpickAndTensionWrench
             {
                 return;
             }
-
-            gameTime += dt;
 
             if (capi.World.Player is not null)
             {
@@ -484,7 +579,7 @@ namespace Thievery.src.LockpickAndTensionWrench
                     int codePos = CurrentPinCodePos(i);
                     bool atFalseHotspot = pinFalseSetCodes[i].Contains(codePos);
 
-                    if (pinRotations[i] == 0.0) DamageLockpick();
+                    if (pinRotations[i] == 0.0) DamageLockpick(difficultyLevel);
 
                     TryRandomlyUnsetASetPin(atFalseHotspot);
                 }
@@ -580,7 +675,11 @@ namespace Thievery.src.LockpickAndTensionWrench
 
             initialActiveCode  = initialActiveSlot?.Itemstack?.Collectible?.Code;
             initialOffhandCode = initialOffhandSlot?.Itemstack?.Collectible?.Code;
-
+            if (!initialWrenchDamageApplied)
+            {
+                DamageTensionWrench(difficultyLevel*ModConfig.Instance.MiniGame.InitialDamageMultiplier);
+                initialWrenchDamageApplied = true;
+            }
             sessionTokenActive  = Guid.NewGuid().ToString("N");
             sessionTokenOffhand = Guid.NewGuid().ToString("N");
             capi.Network.GetChannel("thievery").SendPacket(new StartLockpickSessionPacket {
@@ -729,8 +828,6 @@ namespace Thievery.src.LockpickAndTensionWrench
             pickRenderer.RollDeg  = GameMath.Lerp(pickRenderer.RollDeg,  targetRoll,  tr);
         }
 
-
-
         private void SnapPickTiltToCurrent()
         {
             if (pickRenderer == null) return;
@@ -739,29 +836,6 @@ namespace Thievery.src.LockpickAndTensionWrench
             pickRenderer.PitchDeg = pickPitchBaseDeg + pickPitchMaxDelta * push;
             pickRenderer.YawDeg   = pickYawBaseDeg   + pickYawMaxDelta   * push;
             pickRenderer.RollDeg  = pickRollBaseDeg  + pickRollMaxDelta  * push;
-        }
-
-
-        private MultiTextureMeshRef? CachedMeshForItem(ICoreClientAPI capi, Item? item)
-        {
-            if (item == null) return null;
-            return capi.TesselatorManager.GetDefaultItemMeshRef(item);
-        }
-
-        private MultiTextureMeshRef? ManualMeshForItem(ICoreClientAPI capi, Item? item, out bool owns)
-        {
-            owns = false;
-            if (item == null) return null;
-
-            ITexPositionSource tex = capi.Tesselator.GetTextureSource(item, true);
-            capi.Tesselator.TesselateItem(item, out var meshData, tex);
-            if (meshData != null && meshData.VerticesCount > 0)
-            {
-                var mr = capi.Render.UploadMultiTextureMesh(meshData);
-                owns = (mr != null);
-                return mr;
-            }
-            return null;
         }
 
         private Item? ResolveItem(ICoreClientAPI capi, string codeOrFull)
@@ -794,7 +868,7 @@ namespace Thievery.src.LockpickAndTensionWrench
                         OffhandInventoryId = initialOffhandSlot?.Inventory?.InventoryID,
                         OffhandSlotId      = initialOffhandSlot?.Inventory?.GetSlotId(initialOffhandSlot) ?? -1
                     });
-                } catch { /* ignore */ }
+                } catch {}
             }
             base.OnGuiClosed();
         }
@@ -825,33 +899,50 @@ namespace Thievery.src.LockpickAndTensionWrench
                 case EnumEntityAction.Left:
                 case EnumEntityAction.Right:
                 case EnumEntityAction.Jump:
-                case EnumEntityAction.Sneak:
-                case EnumEntityAction.Sprint:
                 case EnumEntityAction.Glide:
                 case EnumEntityAction.FloorSit:
                 case EnumEntityAction.Up:
                 case EnumEntityAction.Down:
-                case EnumEntityAction.CtrlKey:
                 case EnumEntityAction.ShiftKey:
                 case EnumEntityAction.InWorldLeftMouseDown:
+                    handled = EnumHandling.PreventDefault;
+                    break;
+
+                case EnumEntityAction.Sneak:
+                    handled = EnumHandling.PreventDefault;
+                    if (!on)
+                    {
+                        capi.World.Player.Entity.Controls.Sneak = true;
+                    }
+                    break;
+
                 case EnumEntityAction.InWorldRightMouseDown:
                     handled = EnumHandling.PreventDefault;
+                    if (on)
+                    {
+                        var now = capi.ElapsedMilliseconds;
+                        if (now - guiOpenedTime > rightClickDelay)
+                        {
+                            TryClose();
+                        }
+                    }
+                    break;
+                case EnumEntityAction.Sprint:
+                case EnumEntityAction.CtrlKey:
+                    handled = EnumHandling.PreventDefault;
+                    if (on)
+                    {
+                        var now = capi.ElapsedMilliseconds;
+                        if (now - lastProbeMs >= probeCooldownMs)
+                        {
+                            lastProbeMs = now;
+                            TryProbeCurrentPin();
+                        }
+                    }
                     break;
 
                 default:
                     return;
-            }
-            if (action == EnumEntityAction.Sneak && !on)
-            {
-                capi.World.Player.Entity.Controls.Sneak = true;
-            }
-            if (action == EnumEntityAction.InWorldRightMouseDown && on)
-            {
-                var now = capi.ElapsedMilliseconds;
-                if (now - guiOpenedTime > rightClickDelay)
-                {
-                    TryClose();
-                }
             }
         }
         private void TryRandomlyUnsetASetPin(bool wasFalseHotspot)
@@ -970,14 +1061,75 @@ namespace Thievery.src.LockpickAndTensionWrench
                 }
             }
         }
+        private void TryProbeCurrentPin()
+        {
+            if (pinInitiallyDisabled[pinIndex]) return;
+            
+            string status;
+            if (pinStates[pinIndex] == PinStates.Locked)
+            {
+                status = Lang.Get("thievery:probe-status-set");
+            }
+            else if (pinIsBinding != null && pinIsBinding[pinIndex])
+            {
+                status = Lang.Get("thievery:probe-status-binding");
+            }
+            else
+            {
+                status = Lang.Get("thievery:probe-status-unset");
+            }
+            
+            capi?.TriggerIngameError("thieverymod-probe", "pinstatus",
+                Lang.Get("thievery:probe-readout", pinIndex + 1, status));
+            
+            probeUses++;
+            if (probeUses <= FreeProbeUses) return;
+
+            probeBreakAccum = Math.Clamp(probeBreakAccum + ProbeBreakChanceIncrement, 0.0, 1.0);
+            var rng = capi?.World?.Rand ?? Random.Shared;
+
+            if (rng.NextDouble() < probeBreakAccum)
+            {
+                TriggerLockoutAndClose();
+            }
+        }
+        private void TriggerLockoutAndClose()
+        {
+            capi?.TriggerIngameError("thieverymod-probe", "lockbroken",
+                Lang.Get("thievery:probe-lock-broken"));
+            PlayOneShot(sBreak);
+
+            try
+            {
+                long until;
+                if (ModConfig.Instance?.MiniGame?.PermanentLockBreak == true)
+                {
+                    until = -1;
+                }
+                else
+                {
+                    until = capi.World.ElapsedMilliseconds + LockoutMs;
+                }
+
+                capi.Network.GetChannel("thievery").SendPacket(new LockPickLockoutPacket
+                {
+                    BlockPos = bePos,
+                    LockUid = currentLockUid,
+                    LockoutUntilMs = until
+                });
+            }
+            catch {}
+
+            capi.Event.EnqueueMainThreadTask(() => TryClose(), "lockpickingclose");
+        }
 
         
-        private ILoadedSound LoadSound(string pathNoExt, bool loop, float volume = 1f, float pitch = 1f)
+        private ILoadedSound LoadSound(AssetLocation loc, bool loop, float volume = 1f, float pitch = 1f)
         {
             var pos = new Vec3f((float)bePos.X + 0.5f, (float)bePos.Y + 0.5f, (float)bePos.Z + 0.5f);
             return capi.World.LoadSound(new SoundParams
             {
-                Location = new AssetLocation("thievery", pathNoExt),
+                Location = loc,
                 Position = pos,
                 DisposeOnFinish = false,
                 Pitch = pitch,
@@ -989,11 +1141,12 @@ namespace Thievery.src.LockpickAndTensionWrench
 
         private void LoadAllSounds()
         {
-            sLoopInteract = LoadSound("sounds/lockpicking",        loop: true,  volume: 0.1f);
-            sHotspot      = LoadSound("sounds/lockpicking_hotspot",loop: false, volume: 0.9f);
-            sFalse        = LoadSound("sounds/lockpicking_false",  loop: false, volume: 0.9f);
-            sSet          = LoadSound("sounds/lockpicking_set",    loop: false, volume: 0.9f);
-            sSelect       = LoadSound("sounds/lockpicking_select", loop: false, volume: 0.5f);
+            sLoopInteract = LoadSound(new AssetLocation("thievery","sounds/lockpicking"),         loop: true,  volume: 0.1f);
+            sHotspot      = LoadSound(new AssetLocation("thievery","sounds/lockpicking_hotspot"), loop: false, volume: 0.9f);
+            sFalse        = LoadSound(new AssetLocation("thievery","sounds/lockpicking_false"),   loop: false, volume: 0.9f);
+            sSet          = LoadSound(new AssetLocation("thievery","sounds/lockpicking_set"),     loop: false, volume: 0.9f);
+            sSelect       = LoadSound(new AssetLocation("thievery","sounds/lockpicking_select"),  loop: false, volume: 0.5f);
+            sBreak        = LoadSound(new AssetLocation("game", "sounds/tool/breakreinforced"), loop: false, volume: 1.0f);
         }
 
         private void StopAndDispose(ILoadedSound snd)

@@ -26,7 +26,7 @@ public class LockpickingMainConfig
         [DefaultValue(200d)]
         public float LockPickDamage { get; set; } = 200f;
 
-        /// <summary>If true, player must have the Pilferer attribute to pick locks.</summary>
+        /// <summary>List of traits that grant the ability to pick locks.</summary>
         [Category("Requirements")]
         [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
         public List<string> RequiredTraits  { get; set; } = new()
@@ -48,7 +48,7 @@ public class LockpickingMainConfig
         [DefaultValue(20)]
         public int AgedKeyDamage { get; set; } = 20;
 
-        /// <summary>Durability damage applied to generic lock tools.</summary>
+        /// <summary>Durability damage applied to lock tools on use.</summary>
         [Category("Tools")]
         [Range(0, int.MaxValue)]
         [DefaultValue(50)]

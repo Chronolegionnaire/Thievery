@@ -1,4 +1,5 @@
 ﻿using System;
+using Thievery.Config;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
@@ -78,14 +79,26 @@ namespace Thievery.LockAndKey
 
             var lockBehavior = blockEntity.GetBehavior<BlockEntityThieveryLockData>();
             if (lockBehavior == null) return null;
+            long lockout = lockBehavior.LockpickLockoutUntilMs;
+            if (lockout == -1 && (ModConfig.Instance?.MiniGame?.PermanentLockBreak != true))
+            {
+                var minutes = ModConfig.Instance?.MiniGame?.ProbeLockoutMinutes ?? 10;
+                long now = api.World.ElapsedMilliseconds;
+                lockout = now + Math.Max(1, minutes) * 60L * 1000L;
+                lockBehavior.LockpickLockoutUntilMs = lockout;
+                blockEntity.MarkDirty(true);
+            }
 
             return new LockData
             {
                 LockUid = lockBehavior.LockUID,
                 IsLocked = lockBehavior.LockedState,
-                LockType = lockBehavior.LockType
+                LockType = lockBehavior.LockType,
+                LockoutUntilMs = lockout
             };
         }
+
+
 
         public bool IsPlayerAuthorized(BlockPos pos, IPlayer player)
         {

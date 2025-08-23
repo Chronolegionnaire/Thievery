@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using HarmonyLib;
 using Newtonsoft.Json;
@@ -6,11 +7,11 @@ using Newtonsoft.Json.Linq;
 using Thievery.Config;
 using Thievery.LockAndKey;
 using Thievery.LockpickAndTensionWrench;
-using Thievery.XSkill;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
+using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
 using Vintagestory.GameContent;
 
@@ -26,7 +27,6 @@ namespace Thievery
         public IClientNetworkChannel clientChannel;
         private IServerNetworkChannel serverChannel;
         private ConfigLibCompatibility _configLibCompatibility;
-        private XLibSkills xLibSkills;
         private ICoreServerAPI _serverApi;
         private ICoreClientAPI _clientApi;
         private const string SessionAttrKey = "thievery.lockpickSessionToken";
@@ -40,13 +40,8 @@ namespace Thievery
                 harmony = new Harmony(HarmonyID);
                 harmony.PatchAll();
             }
-            /*if (api.ModLoader.IsModEnabled("xlib") || api.ModLoader.IsModEnabled("xlibpatch"))
-            {
-                xLibSkills = new XLibSkills();
-                xLibSkills.Initialize(api);
-            }*/
         }
-        
+
         public override void Start(ICoreAPI Api)
         {
             this.api = Api;
@@ -75,6 +70,8 @@ namespace Thievery
                 .RegisterMessageType<ItemDestroyedPacket>()
                 .RegisterMessageType<StartLockpickSessionPacket>()
                 .RegisterMessageType<EndLockpickSessionPacket>()
+                .RegisterMessageType<LockPickLockoutPacket>()
+                .RegisterMessageType<WorldgenPickRewardPacket>()
                 .SetMessageHandler<TransformMoldPacket>(OnTransformMoldRequest)
                 .SetMessageHandler<SyncKeyAttributesPacket>(OnSyncKeyAttributesPacket)
                 .SetMessageHandler<KeyNameUpdatePacket>((player, packet) =>
@@ -87,7 +84,9 @@ namespace Thievery
                 .SetMessageHandler<LockPickCompletePacket>(OnLockPickCompletePacket)
                 .SetMessageHandler<ItemDamagePacket>(OnItemDamagePacketReceived)
                 .SetMessageHandler<StartLockpickSessionPacket>(OnStartLockpickSession)
-                .SetMessageHandler<EndLockpickSessionPacket>(OnEndLockpickSession);
+                .SetMessageHandler<EndLockpickSessionPacket>(OnEndLockpickSession)
+                .SetMessageHandler<LockPickLockoutPacket>(OnLockPickLockoutPacket)
+                .SetMessageHandler<WorldgenPickRewardPacket>(OnWorldgenPickRewardPacket);
             if (api.ModLoader.IsModEnabled("carryon"))
             {
                 var carrySystem = Api.ModLoader.GetModSystem("CarrySystem");
@@ -99,7 +98,8 @@ namespace Thievery
                     var onRestoreEvent = carryEvents?.GetType().GetEvent("OnRestoreEntityBlockData");
                     if (onRestoreEvent != null)
                     {
-                        onRestoreEvent.AddEventHandler(carryEvents, new Action<BlockEntity, ITreeAttribute, bool>(OnCarryOnRestoreBlockEntity));
+                        onRestoreEvent.AddEventHandler(carryEvents,
+                            new Action<BlockEntity, ITreeAttribute, bool>(OnCarryOnRestoreBlockEntity));
                     }
                 }
             }
@@ -111,7 +111,7 @@ namespace Thievery
             LockManager = new LockManager(api);
             lockpickHudElement = new LockpickHudElement(api);
             _clientApi = api;
-            if(api.ModLoader.IsModEnabled("configlib")) ConfigLibCompatibility.Init(api);
+            if (api.ModLoader.IsModEnabled("configlib")) ConfigLibCompatibility.Init(api);
             api.Event.RegisterRenderer(lockpickHudElement, EnumRenderStage.Ortho, "lockpickhud");
             clientChannel = api.Network.RegisterChannel("thievery")
                 .RegisterMessageType<PickProgressPacket>()
@@ -123,8 +123,10 @@ namespace Thievery
                 .RegisterMessageType<ItemDestroyedPacket>()
                 .RegisterMessageType<StartLockpickSessionPacket>()
                 .RegisterMessageType<EndLockpickSessionPacket>()
+                .RegisterMessageType<LockPickLockoutPacket>()
+                .RegisterMessageType<WorldgenPickRewardPacket>()
                 .SetMessageHandler<PickProgressPacket>(OnPickProgressReceived)
-                .SetMessageHandler<ItemDestroyedPacket>(OnItemDestroyedReceived);;
+                .SetMessageHandler<ItemDestroyedPacket>(OnItemDestroyedReceived);
         }
 
         public override void AssetsFinalize(ICoreAPI Api)
@@ -140,10 +142,12 @@ namespace Thievery
                     {
                         block.EntityClass = "Generic";
                     }
+
                     if (block.BlockEntityBehaviors == null)
                     {
                         block.BlockEntityBehaviors = new BlockEntityBehaviorType[0];
                     }
+
                     bool hasBehavior = block.BlockEntityBehaviors.Any(b => b.Name == "ThieveryLockData");
                     if (!hasBehavior)
                     {
@@ -168,6 +172,7 @@ namespace Thievery
             lockpickHudElement.CircleProgress = packet.Progress;
             lockpickHudElement.CircleVisible = packet.IsPicking;
         }
+
         public override void Dispose()
         {
             harmony.UnpatchAll(HarmonyID);
@@ -185,10 +190,12 @@ namespace Thievery
             {
                 return;
             }
+
             if (packet.SlotIndex < 0 || packet.SlotIndex >= groundStorageEntity.Inventory.Count)
             {
                 return;
             }
+
             var inventorySlot = groundStorageEntity.Inventory[packet.SlotIndex];
             if (inventorySlot?.Itemstack?.Block?.Code?.Path.Contains("keymoldpre") == true)
             {
@@ -197,6 +204,7 @@ namespace Thievery
                 {
                     return;
                 }
+
                 var newItemStack = new ItemStack(newBlock);
                 if (!string.IsNullOrEmpty(packet.KeyUID))
                 {
@@ -211,6 +219,7 @@ namespace Thievery
                 {
                     newItemStack.Attributes.SetString("keyName", Lang.Get("thievery:key"));
                 }
+
                 inventorySlot.Itemstack = newItemStack;
                 groundStorageEntity.Inventory[packet.SlotIndex].MarkDirty();
                 groundStorageEntity.MarkDirty(true);
@@ -218,6 +227,7 @@ namespace Thievery
                     packet.BlockPos.Y, packet.BlockPos.Z, null, true, 16);
             }
         }
+
         private void OnSyncKeyAttributesPacket(IServerPlayer player, SyncKeyAttributesPacket packet)
         {
             var api = player.Entity.World.Api;
@@ -228,13 +238,16 @@ namespace Thievery
                 api.World.Logger.Warning($"[Thievery] BlockEntityToolMold not found at {packet.BlockPos}.");
                 return;
             }
+
             var tree = new TreeAttribute();
             tree.SetString("keyUID", packet.KeyUID);
             tree.SetString("keyName", packet.KeyName);
             blockEntity.FromTreeAttributes(tree, api.World);
             blockEntity.MarkDirty(true);
-            api.World.Logger.Debug($"[Thievery] Server - Applied attributes to BlockEntityToolMold at {packet.BlockPos}: keyUID={packet.KeyUID}, keyName={packet.KeyName}");
+            api.World.Logger.Debug(
+                $"[Thievery] Server - Applied attributes to BlockEntityToolMold at {packet.BlockPos}: keyUID={packet.KeyUID}, keyName={packet.KeyName}");
         }
+
         private void OnLockPickCompletePacket(IServerPlayer player, LockPickCompletePacket packet)
         {
             var lockData = LockManager.GetLockData(packet.BlockPos);
@@ -242,9 +255,9 @@ namespace Thievery
             bool newState = lockData.IsLocked;
             switch (packet.Action)
             {
-                case LockAction.Toggle:  newState = !lockData.IsLocked; break;
-                case LockAction.Lock:    newState = true;               break;
-                case LockAction.Unlock:  newState = false;              break;
+                case LockAction.Toggle: newState = !lockData.IsLocked; break;
+                case LockAction.Lock: newState = true; break;
+                case LockAction.Unlock: newState = false; break;
             }
 
             LockManager.SetLock(packet.BlockPos, lockData.LockUid, newState);
@@ -253,6 +266,7 @@ namespace Thievery
                 packet.BlockPos, 0, null, true, 32f, 1f
             );
         }
+
         private void OnCarryOnRestoreBlockEntity(BlockEntity blockEntity, ITreeAttribute blockEntityData, bool dropped)
         {
             var lockBehavior = blockEntity?.GetBehavior<BlockEntityThieveryLockData>();
@@ -261,6 +275,7 @@ namespace Thievery
                 lockBehavior.FromTreeAttributes(blockEntityData, blockEntity.Api.World);
             }
         }
+
         private void OnItemDamagePacketReceived(IServerPlayer player, ItemDamagePacket packet)
         {
             var inventory = player.InventoryManager.GetInventory(packet.InventoryId);
@@ -269,25 +284,28 @@ namespace Thievery
 
             var slot = inventory[packet.SlotId];
             if (slot?.Itemstack == null) return;
-            string existingToken = slot.Itemstack.Attributes.GetString(SessionAttrKey, null);
 
+            int damage = packet.Damage;
             int durability = slot.Itemstack.Attributes.GetInt("durability", 0);
-            int maxDurability = slot.Itemstack.Collectible.Attributes?["durability"]?.AsInt(0) ?? 0;
-            bool willDestroy = durability <= packet.Damage;
+            bool willDestroy = durability <= damage;
 
-            slot.Itemstack.Collectible.DamageItem(player.Entity.World, player.Entity, slot, packet.Damage);
+            slot.Itemstack.Collectible.DamageItem(player.Entity.World, player.Entity, slot, damage);
 
             if (willDestroy || slot.Itemstack == null)
             {
                 serverChannel.SendPacket(new ItemDestroyedPacket { PlayerUid = player.PlayerUID }, player);
                 return;
             }
+
+            string existingToken = slot.Itemstack.Attributes.GetString(SessionAttrKey, null);
             if (!string.IsNullOrEmpty(existingToken))
             {
                 slot.Itemstack.Attributes.SetString(SessionAttrKey, existingToken);
                 slot.MarkDirty();
             }
         }
+
+
         private void OnItemDestroyedReceived(ItemDestroyedPacket packet)
         {
             if (_clientApi == null) return;
@@ -296,18 +314,19 @@ namespace Thievery
             var lockpickItems = _clientApi.World.Items
                 .Where(item => item is ItemLockpick)
                 .Cast<ItemLockpick>();
-    
+
             foreach (var lockpickItem in lockpickItems)
             {
                 lockpickItem.StopPickingForPlayer(player);
             }
-    
+
             if (LockpickHudElement != null)
             {
                 LockpickHudElement.CircleVisible = false;
                 LockpickHudElement.CircleProgress = 0f;
             }
         }
+
         private void OnStartLockpickSession(IServerPlayer player, StartLockpickSessionPacket p)
         {
             void Stamp(string invId, int slotId, string token)
@@ -322,7 +341,7 @@ namespace Thievery
                 slot.MarkDirty();
             }
 
-            Stamp(p.ActiveInventoryId,  p.ActiveSlotId,  p.ActiveToken);
+            Stamp(p.ActiveInventoryId, p.ActiveSlotId, p.ActiveToken);
             Stamp(p.OffhandInventoryId, p.OffhandSlotId, p.OffhandToken);
         }
 
@@ -338,8 +357,218 @@ namespace Thievery
                 slot.MarkDirty();
             }
 
-            Clear(p.ActiveInventoryId,  p.ActiveSlotId);
+            Clear(p.ActiveInventoryId, p.ActiveSlotId);
             Clear(p.OffhandInventoryId, p.OffhandSlotId);
+        }
+
+        private void OnLockPickLockoutPacket(IServerPlayer fromPlayer, LockPickLockoutPacket pkt)
+        {
+            try
+            {
+                var world = api.World;
+                if (world == null || pkt?.BlockPos == null) return;
+
+                var be = world.BlockAccessor.GetBlockEntity(pkt.BlockPos);
+                if (be == null) return;
+
+                var beh = be.GetBehavior<BlockEntityThieveryLockData>();
+                if (beh == null) return;
+
+                if (!string.IsNullOrEmpty(beh.LockUID) &&
+                    !string.IsNullOrEmpty(pkt.LockUid) &&
+                    !beh.LockUID.Equals(pkt.LockUid))
+                {
+                    return;
+                }
+
+                bool permanentCfg = ModConfig.Instance?.MiniGame?.PermanentLockBreak == true;
+
+                bool isWorldgen = WorldgenLockUtils.IsWorldgenLockAt(world, pkt.BlockPos, beh.LockUID);
+
+                long until;
+                if (ModConfig.Instance?.MiniGame?.PermanentLockBreak == true || pkt.LockoutUntilMs == -1)
+                {
+                    until = -1;
+                }
+                else
+                {
+                    long now = world.ElapsedMilliseconds;
+                    long mins = Math.Max(1, ModConfig.Instance?.MiniGame?.ProbeLockoutMinutes ?? 10);
+                    until = now + mins * 60L * 1000L;
+                }
+
+                if (isWorldgen)
+                {
+                    beh.SetGlobalLockout(until);
+                }
+                else
+                {
+                    beh.SetPerPlayerLockout(fromPlayer.PlayerUID, until);
+                }
+
+                be.MarkDirty(true);
+
+                var sapi = api as ICoreServerAPI;
+                sapi?.Network?.BroadcastBlockEntityPacket(pkt.BlockPos, ThieveryPacketIds.LockStateSync, new LockData
+                {
+                    LockUid = beh.LockUID,
+                    IsLocked = beh.LockedState,
+                    LockType = beh.LockType,
+                    LockoutUntilMs = until
+                });
+            }
+            catch
+            {
+            }
+        }
+        private void OnWorldgenPickRewardPacket(IServerPlayer fromPlayer, WorldgenPickRewardPacket pkt)
+        {
+            var sapi = api as ICoreServerAPI;
+            if (sapi == null || pkt?.BlockPos == null) return;
+
+            sapi.Event.RegisterCallback((dt) =>
+            {
+                var be = sapi.World.BlockAccessor.GetBlockEntity(pkt.BlockPos);
+                if (be == null) return;
+
+                var beh = be.GetBehavior<BlockEntityThieveryLockData>();
+                if (beh == null) return;
+
+                if (!string.IsNullOrEmpty(beh.LockUID) &&
+                    !string.IsNullOrEmpty(pkt.LockUid) &&
+                    beh.LockUID.Equals(pkt.LockUid) &&
+                    beh.LockedState == false)
+                {
+                    WorldgenPickRewardGiver.GrantWorldgenPickRewardOnce(sapi, pkt.BlockPos, pkt.LockType, pkt.LockUid, fromPlayer);
+                }
+            }, 0);
+        }
+
+        public static class WorldgenPickRewardGiver
+        {
+            public static void GrantWorldgenPickRewardOnce(ICoreServerAPI sapi, BlockPos pos, string lockType, string lockUid, IServerPlayer player)
+            {
+                var be = sapi.World.BlockAccessor.GetBlockEntity(pos);
+                if (be == null) return;
+
+                var beLock = be.GetBehavior<BlockEntityThieveryLockData>();
+                if (beLock == null) return;
+
+                if (beLock.WorldGenPickRewardGranted) return;
+
+                if (!WorldgenLockUtils.IsWorldgenLockAt(sapi.World, pos, beLock.LockUID))
+                    return;
+
+                int difficulty = DifficultyHelper.GetLockDifficulty(sapi, lockType);
+
+                if (be is BlockEntityGenericTypedContainer container)
+                {
+                    GiveContainerLoot(sapi, container, difficulty, player);
+                }
+                else
+                {
+                    DropRustyGears(sapi, pos, difficulty);
+                }
+
+                beLock.WorldGenPickRewardGranted = true;
+                be.MarkDirty(true);
+            }
+
+            private static void GiveContainerLoot(ICoreServerAPI sapi, BlockEntityGenericTypedContainer container, int difficulty, IServerPlayer player)
+            {
+                var rng   = sapi.World.Rand ?? Random.Shared;
+                var items = WorldgenPickRewards.RollLoot(sapi, difficulty, rng, player);
+                var inv   = container.Inventory;
+
+                foreach (var st in items)
+                {
+                    bool placed = false;
+
+                    for (int i = 0; i < inv.Count; i++)
+                    {
+                        var slot = inv[i];
+                        if (!slot.Empty) continue;
+
+                        slot.Itemstack = st;
+
+                        if (slot.Itemstack?.Collectible is IResolvableCollectible rc)
+                        {
+                            rc.Resolve(slot, sapi.World, true);
+                        }
+
+                        slot.MarkDirty();
+                        placed = true;
+                        break;
+                    }
+
+                    if (!placed)
+                    {
+                        var toDrop = st;
+                        if (toDrop?.Collectible is IResolvableCollectible rc)
+                        {
+                            var dummyInv  = new DummyInventory(sapi, 1);
+                            var dummySlot = new ItemSlot(dummyInv) { Itemstack = toDrop };
+                            rc.Resolve(dummySlot, sapi.World, true);
+                            toDrop = dummySlot.Itemstack;
+                        }
+
+                        if (toDrop != null)
+                        {
+                            var dropPos = container.Pos.ToVec3d().Add(0.5, 0.75, 0.5);
+                            sapi.World.SpawnItemEntity(toDrop, dropPos);
+                        }
+                    }
+                }
+
+                container.MarkDirty(true);
+            }
+
+            private static void DropRustyGears(ICoreServerAPI sapi, BlockPos pos, int difficulty)
+            {
+                var gear = sapi.World.GetItem(new AssetLocation("game:gear-rusty"));
+                if (gear == null) return;
+
+                var rng = sapi.World.Rand ?? Random.Shared;
+                int amount = WorldgenPickRewards.RustyGearsForDifficulty(difficulty, rng);
+
+                var stack = new ItemStack(gear, amount);
+                var dropPos = pos.ToVec3d().Add(0.5, 0.75, 0.5);
+                sapi.World.SpawnItemEntity(stack, dropPos);
+            }
+        }
+        internal static class DifficultyHelper
+        {
+            public static int GetLockDifficulty(ICoreAPI api, string lockType)
+            {
+                var diff = Thievery.Config.ModConfig.Instance?.Difficulty;
+
+                var padlockDifficulties = new Dictionary<string, int>
+                {
+                    { "padlock-blackbronze",   diff?.BlackBronzePadlockDifficulty ?? 25 },
+                    { "padlock-bismuthbronze", diff?.BismuthBronzePadlockDifficulty ?? 30 },
+                    { "padlock-tinbronze",     diff?.TinBronzePadlockDifficulty ?? 35 },
+                    { "padlock-iron",          diff?.IronPadlockDifficulty ?? 60 },
+                    { "padlock-meteoriciron",  diff?.MeteoricIronPadlockDifficulty ?? 70 },
+                    { "padlock-steel",         diff?.SteelPadlockDifficulty ?? 80 },
+                    { "padlock-copper",        diff?.CopperPadlockDifficulty ?? 10 },
+                    { "padlock-nickel",        diff?.NickelPadlockDifficulty ?? 15 },
+                    { "padlock-silver",        diff?.SilverPadlockDifficulty ?? 35 },
+                    { "padlock-gold",          diff?.GoldPadlockDifficulty ?? 20 },
+                    { "padlock-titanium",      diff?.TitaniumPadlockDifficulty ?? 90 },
+                    { "padlock-lead",          diff?.LeadPadlockDifficulty ?? 20 },
+                    { "padlock-zinc",          diff?.ZincPadlockDifficulty ?? 25 },
+                    { "padlock-tin",           diff?.TinPadlockDifficulty ?? 20 },
+                    { "padlock-chromium",      diff?.ChromiumPadlockDifficulty ?? 60 },
+                    { "padlock-cupronickel",   diff?.CupronickelPadlockDifficulty ?? 40 },
+                    { "padlock-electrum",      diff?.ElectrumPadlockDifficulty ?? 20 },
+                    { "padlock-platinum",      diff?.PlatinumPadlockDifficulty ?? 50 },
+                };
+
+                if (padlockDifficulties.TryGetValue(lockType, out int d))
+                    return GameMath.Clamp(d, 1, 100);
+
+                return 50;
+            }
         }
     }
 }

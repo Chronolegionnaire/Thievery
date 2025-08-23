@@ -50,7 +50,10 @@ namespace Thievery.LockpickAndTensionWrench
             }
             return 50;
         }
-
+        private bool IsSkeletonKey(ItemSlot slot)
+        {
+            return slot?.Itemstack?.Collectible?.Code?.Path == "lockpick-skeletonkey";
+        }
         private bool ShouldUseBindingOrder(int lockDifficulty)
             => lockDifficulty >= (ModConfig.Instance?.MiniGame?.BindingOrderThreshold ?? 75);
         public class PlayerPickData
@@ -109,11 +112,10 @@ namespace Thievery.LockpickAndTensionWrench
         private bool HasUseAccessInClaims(IPlayer player, BlockPos pos)
         {
             var claimsApi = api?.World?.Claims;
-            if (claimsApi == null) return true; // no claim system → allow
+            if (claimsApi == null) return true;
 
-            // Client: TestAccess/TryAccess always returns true, so we must inspect claims directly
             var claims = claimsApi.Get(pos);
-            if (claims == null || claims.Length == 0) return true; // not in a claim
+            if (claims == null || claims.Length == 0) return true;
 
             foreach (var claim in claims)
             {
@@ -227,6 +229,49 @@ namespace Thievery.LockpickAndTensionWrench
                 handling = EnumHandHandling.PreventDefault;
                 return;
             }
+            if (lockData.LockoutUntilMs == -1)
+            {
+                if (ModConfig.Instance?.MiniGame?.PermanentLockBreak == true)
+                {
+                    if (api.Side == EnumAppSide.Client)
+                    {
+                        (api as ICoreClientAPI)?.TriggerIngameError(
+                            "thieverymod-lockout", "lockoutpermanent",
+                            Lang.Get("thievery:lockpick-lockout-permanent")
+                        );
+                    }
+                    handling = EnumHandHandling.PreventDefault;
+                    return;
+                }
+                else
+                {
+                    var minutes = ModConfig.Instance?.MiniGame?.ProbeLockoutMinutes ?? 10;
+                    var remainSec = Math.Max(1, minutes * 60);
+                    if (api.Side == EnumAppSide.Client)
+                    {
+                        (api as ICoreClientAPI)?.TriggerIngameError(
+                            "thieverymod-lockout", "lockoutactive",
+                            Lang.Get("thievery:lockpick-lockout-active", remainSec)
+                        );
+                    }
+                    handling = EnumHandHandling.PreventDefault;
+                    return;
+                }
+            }
+            else if (lockData.LockoutUntilMs > api.World.ElapsedMilliseconds)
+            {
+                if (api.Side == EnumAppSide.Client)
+                {
+                    var remainMs = lockData.LockoutUntilMs - api.World.ElapsedMilliseconds;
+                    var remainSec = Math.Max(1, remainMs / 1000);
+                    (api as ICoreClientAPI)?.TriggerIngameError(
+                        "thieverymod-lockout", "lockoutactive",
+                        Lang.Get("thievery:lockpick-lockout-active", remainSec)
+                    );
+                }
+                handling = EnumHandHandling.PreventDefault;
+                return;
+            }
             bool hasActualLock =
                 lockData != null &&
                 !string.IsNullOrEmpty(lockData.LockUid) &&
@@ -238,6 +283,28 @@ namespace Thievery.LockpickAndTensionWrench
                     Lang.Get("thievery:no-padlock"));
                 handling = EnumHandHandling.PreventDefault;
                 return;
+            }
+            if (IsSkeletonKey(slot))
+            {
+                if (api.Side == EnumAppSide.Client)
+                {
+                    var capi = api as ICoreClientAPI;
+
+                    capi.Network.GetChannel("thievery").SendPacket(new LockPickCompletePacket
+                    {
+                        BlockPos = blockSel.Position,
+                        LockUid = lockData.LockUid,
+                        Action = LockAction.Toggle
+                    });
+                    capi.Network.GetChannel("thievery").SendPacket(new WorldgenPickRewardPacket
+                    {
+                        BlockPos = blockSel.Position,
+                        LockUid = lockData.LockUid,
+                        LockType = lockData.LockType
+                    });
+                }
+                handling = EnumHandHandling.PreventDefault;
+                    return;
             }
             if (ModConfig.Instance.MiniGame.LockpickingMinigame)
             {
@@ -251,7 +318,8 @@ namespace Thievery.LockpickAndTensionWrench
                         capi,
                         PadlockDifficulty,
                         ShouldUseBindingOrder(PadlockDifficulty),
-                        lockData.LockType
+                        lockData.LockType,
+                        lockData.LockUid
                     );
                     byEntity.Controls.RightMouseDown = false;
                     capi.Input.MouseWorldInteractAnyway = true;
@@ -262,6 +330,12 @@ namespace Thievery.LockpickAndTensionWrench
                             BlockPos = blockSel.Position,
                             LockUid = lockData.LockUid,
                             Action = LockAction.Toggle
+                        });
+                        capi.Network.GetChannel("thievery").SendPacket(new WorldgenPickRewardPacket
+                        {
+                            BlockPos = blockSel.Position,
+                            LockUid  = lockData.LockUid,
+                            LockType = lockData.LockType
                         });
                     };
                     minigameDialog.OnClosed += () =>
@@ -450,20 +524,25 @@ namespace Thievery.LockpickAndTensionWrench
         private void CompletePicking(IPlayer player, BlockSelection blockSel, PlayerPickData pickData)
         {
             var lockData = lockManager.GetLockData(blockSel.Position);
-            if (lockData != null)
+            if (lockData == null) return;
+
+            if (api.Side == EnumAppSide.Client)
             {
-                if (api.Side == EnumAppSide.Client)
-                {
-                    var clientApi = api as ICoreClientAPI;
-                    StopPicking(player, pickData);
-                    clientApi.Network.GetChannel("thievery").SendPacket(new LockPickCompletePacket
-                    {
-                        BlockPos = blockSel.Position,
-                        LockUid = lockData.LockUid,
-                        Action = LockAction.Toggle
-                    });
-                }
+                var capi = api as ICoreClientAPI;
                 StopPicking(player, pickData);
+                capi.Network.GetChannel("thievery").SendPacket(new LockPickCompletePacket
+                {
+                    BlockPos = blockSel.Position,
+                    LockUid  = lockData.LockUid,
+                    Action   = LockAction.Toggle
+                });
+
+                capi.Network.GetChannel("thievery").SendPacket(new WorldgenPickRewardPacket
+                {
+                    BlockPos = blockSel.Position,
+                    LockUid  = lockData.LockUid,
+                    LockType = lockData.LockType
+                });
             }
         }
 

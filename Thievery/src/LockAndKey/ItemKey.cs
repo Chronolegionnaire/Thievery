@@ -158,6 +158,17 @@ namespace Thievery.LockAndKey
                 {
                     bool newLockState = lockManager.ToggleLock(pos);
                     PlayLockSound(api, pos, newLockState);
+
+                    if (api.Side == EnumAppSide.Server)
+                    {
+                        var be = api.World.BlockAccessor.GetBlockEntity(pos);
+                        var thiev = be?.GetBehavior<BlockEntityThieveryLockData>();
+                        if (thiev != null)
+                        {
+                            thiev.ClearAllLockouts();
+                            be.MarkDirty(true);
+                        }
+                    }
                 }
             }
         }

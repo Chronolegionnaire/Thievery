@@ -14,28 +14,35 @@ public class ModConfig
     public static ModConfig Instance { get; internal set; }
 
     /// <summary>
-    /// The configuration for thirst mechanics
+    /// Main mod config
     /// </summary>
     public LockpickingMainConfig Main { get; set; } = new();
 
     /// <summary>
-    /// The configuration for satiety mechanics
+    /// Lock difficulty assignment
     /// </summary>
     public LockDifficultyConfig Difficulty { get; set; } = new();
 
     /// <summary>
-    /// The configuration for the perish rates
+    /// Mini game config
     /// </summary>
     public LockpickingMiniGameConfig MiniGame { get; set; } = new();
+    
+    /// <summary>
+    /// Minigame loot options
+    /// </summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
+    public LockpickRewardsConfig Rewards { get; set; }
 
     /// <summary>
-    /// The configuration for heat and cooling mechanics
+    /// World gen config
     /// </summary>
     public WorldGenLockingAndReinforcementConfig WorldGen { get; set; } = new();
     
     /// <summary>
-    /// The configuration for liquid encumbrance mechanics
+    /// World gen structure blacklist
     /// </summary>
+    [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
     public StructureBlacklistConfig Blacklist { get; set; } = new();
 
     [JsonExtensionData]

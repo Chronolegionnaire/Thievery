@@ -26,8 +26,8 @@ public class WorldGenLockingAndReinforcementConfig
 
     /// <summary>If true, certain building blocks are reinforced by default.</summary>
     [Category("Reinforcement")]
-    [DefaultValue(false)]
-    public bool ReinforcedBuildingBlocks { get; set; } = false;
+    [DefaultValue(true)]
+    public bool ReinforcedBuildingBlocks { get; set; } = true;
 
     /// <summary>If true, all blocks in a structure are reinforced.</summary>
     [Category("Reinforcement")]

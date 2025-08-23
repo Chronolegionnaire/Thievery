@@ -1,8 +1,10 @@
 ﻿using ConfigLib;
 using ImGuiNET;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Thievery.Config.SubConfigs;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -32,6 +34,11 @@ namespace Thievery.Config
         private const string settingMiniTensionWrenchDamageBase        = "thievery:Config.Setting.Mini.TensionWrenchDamageBase";
         private const string settingMiniBindingOrderThreshold          = "thievery:Config.Setting.Mini.BindingOrderThreshold";
         private const string settingMiniHotspotForgivenessBins          = "thievery:Config.Setting.Mini.HotspotForgivenessBins";
+        private const string settingMiniProbeLockoutMinutes        = "thievery:Config.Setting.Mini.ProbeLockoutMinutes";
+        private const string settingMiniProbeBreakChanceIncrement  = "thievery:Config.Setting.Mini.ProbeBreakChanceIncrement";
+        private const string settingMiniProbeFreeUses              = "thievery:Config.Setting.Mini.ProbeFreeUses";
+        private const string settingMiniPermanentLockBreak         = "thievery:Config.Setting.Mini.PermanentLockBreak";
+
 
         // LockDifficulty (per material)
         private const string settingDiffCopper                         = "thievery:Config.Setting.Difficulty.Copper";
@@ -63,6 +70,33 @@ namespace Thievery.Config
 
         // StructureBlacklist
         private const string settingStructureBlacklist                 = "thievery:Config.Setting.StructureBlacklist";
+        
+        // Rewards – main
+        private const string settingRewardsEnabled            = "thievery:Config.Setting.Rewards.Enabled";
+
+        // Rewards – tier headings
+        private const string settingTierEasy                  = "thievery:Config.Setting.Rewards.Tier.Easy";
+        private const string settingTierMedium                = "thievery:Config.Setting.Rewards.Tier.Medium";
+        private const string settingTierHard                  = "thievery:Config.Setting.Rewards.Tier.Hard";
+        private const string settingTierBrutal                = "thievery:Config.Setting.Rewards.Tier.Brutal";
+
+        // Rewards – tier fields
+        private const string settingTierRolls                 = "thievery:Config.Setting.Rewards.Tier.Rolls";
+        private const string settingTierEmptyWeight           = "thievery:Config.Setting.Rewards.Tier.EmptyWeight";
+        private const string settingTierGearsMin              = "thievery:Config.Setting.Rewards.Tier.GearsMin";
+        private const string settingTierGearsMax              = "thievery:Config.Setting.Rewards.Tier.GearsMax";
+
+        // Rewards – pool editor
+        private const string settingTierPoolHeader            = "thievery:Config.Setting.Rewards.Tier.PoolHeader";
+        private const string settingPoolCode                  = "thievery:Config.Setting.Rewards.Pool.Code";
+        private const string settingPoolMin                   = "thievery:Config.Setting.Rewards.Pool.Min";
+        private const string settingPoolMax                   = "thievery:Config.Setting.Rewards.Pool.Max";
+        private const string settingPoolWeight                = "thievery:Config.Setting.Rewards.Pool.Weight";
+        private const string settingPoolAddEntry              = "thievery:Config.Setting.Rewards.Pool.AddEntry";
+        private const string settingPoolRemove                = "thievery:Config.Setting.Rewards.Pool.Remove";
+        private const string settingPoolMoveUp                = "thievery:Config.Setting.Rewards.Pool.MoveUp";
+        private const string settingPoolMoveDown              = "thievery:Config.Setting.Rewards.Pool.MoveDown";
+
 
         private ConfigLibCompatibility() {}
         public ModConfig EditInstance { get; private set; }
@@ -126,7 +160,7 @@ namespace Thievery.Config
             var mini   = config.MiniGame;
             var world  = config.WorldGen;
             var sb     = config.Blacklist;
-
+            var rewards = config.Rewards ??= LockpickDefaults.Create();
             ImGui.TextWrapped("Thievery Settings");
 
             // ──────────────────────────────────────────────────────────────────
@@ -199,13 +233,15 @@ namespace Thievery.Config
             ImGui.Checkbox(Lang.Get(settingLockpickingMinigame) + $"##lockpickingMinigame-{id}", ref minigameEnabled);
             mini.LockpickingMinigame = minigameEnabled;
 
-            int miniPickBase = mini.LockpickDamageBase;
-            ImGui.DragInt(Lang.Get(settingMiniLockpickDamageBase) + $"##miniPickBase-{id}", ref miniPickBase, 1, 0, int.MaxValue);
-            mini.LockpickDamageBase = Math.Max(0, miniPickBase);
-
-            int miniWrenchBase = mini.TensionWrenchDamageBase;
-            ImGui.DragInt(Lang.Get(settingMiniTensionWrenchDamageBase) + $"##miniWrenchBase-{id}", ref miniWrenchBase, 1, 0, int.MaxValue);
-            mini.TensionWrenchDamageBase = Math.Max(0, miniWrenchBase);
+            double PickBase = mini.TensionWrenchDamageBase;
+            float miniPickBasef = (float)PickBase;
+            ImGui.DragFloat(Lang.Get(settingMiniLockpickDamageBase) + $"##miniPickBase-{id}", ref miniPickBasef, 0.1f, 0, int.MaxValue);
+            mini.LockpickDamageBase = Math.Max(0, miniPickBasef);
+            
+            double WrenchBase = mini.TensionWrenchDamageBase;
+            float miniWrenchBasef = (float)WrenchBase;
+            ImGui.DragFloat(Lang.Get(settingMiniTensionWrenchDamageBase) + $"##miniWrenchBase-{id}", ref miniWrenchBasef, 0.1f, 0, int.MaxValue);
+            mini.TensionWrenchDamageBase = Math.Max(0, miniWrenchBasef);
 
             int bindThreshold = mini.BindingOrderThreshold;
             ImGui.DragInt(Lang.Get(settingMiniBindingOrderThreshold) + $"##bindThreshold-{id}", ref bindThreshold, 1, 0, 100);
@@ -214,6 +250,34 @@ namespace Thievery.Config
             float miniHotspotForgivenessBins = mini.HotspotForgivenessBins;
             ImGui.DragFloat(Lang.Get(settingMiniHotspotForgivenessBins) + $"##miniHotspotForgivenessBins-{id}", ref miniHotspotForgivenessBins, 0.01f, 0f, 0.5f);
             mini.HotspotForgivenessBins = Math.Clamp(miniHotspotForgivenessBins, 0.0f, 0.5f);
+            
+            int probeLockoutMin = mini.ProbeLockoutMinutes;
+            ImGui.DragInt(Lang.Get(settingMiniProbeLockoutMinutes) + $"##probeLockoutMinutes-{id}",
+                ref probeLockoutMin, 1, 1, 120);
+            mini.ProbeLockoutMinutes = Math.Clamp(probeLockoutMin, 1, 120);
+            
+            double probeInc = mini.ProbeBreakChanceIncrement;
+            float probeIncF = (float)probeInc;
+            ImGui.DragFloat(Lang.Get(settingMiniProbeBreakChanceIncrement) + $"##probeBreakInc-{id}",
+                ref probeIncF, 0.01f, 0.0f, 1.0f);
+            mini.ProbeBreakChanceIncrement = Math.Clamp(probeIncF, 0f, 1f);
+            
+            int probeFree = mini.ProbeFreeUses;
+            ImGui.DragInt(Lang.Get(settingMiniProbeFreeUses) + $"##probeFreeUses-{id}",
+                ref probeFree, 1, 0, 10);
+            mini.ProbeFreeUses = Math.Clamp(probeFree, 0, 10);
+            
+            bool permanentBreak = mini.PermanentLockBreak;
+            ImGui.Checkbox(Lang.Get(settingMiniPermanentLockBreak) + $"##permanentLockBreak-{id}",
+                ref permanentBreak);
+            mini.PermanentLockBreak = permanentBreak;
+            
+            // ──────────────────────────────────────────────────────────────────
+            // Lockpicking – Rewards
+            // ──────────────────────────────────────────────────────────────────
+            ImGui.SeparatorText("Lockpicking – Rewards");
+
+            EditRewards(rewards, id);
 
             // ──────────────────────────────────────────────────────────────────
             // Lock Difficulty
@@ -358,6 +422,149 @@ namespace Thievery.Config
             int v = value;
             ImGui.DragInt($"{label}##diff-{suffix}-{id}", ref v, 1, 1, 100);
             value = Math.Clamp(v, 1, 100);
+        }
+        private static void EditRewards(LockpickRewardsConfig rwd, string id)
+        {
+            // Master enable
+            bool enabled = rwd.Enabled;
+            ImGui.Checkbox(Lang.Get(settingRewardsEnabled) + $"##rewardsEnabled-{id}", ref enabled);
+            rwd.Enabled = enabled;
+
+            ImGui.BeginDisabled(!rwd.Enabled);
+            {
+                EditTier(Lang.Get(settingTierEasy),   rwd.Easy  ??= new TierLootConfig(), $"easy-{id}");
+                EditTier(Lang.Get(settingTierMedium), rwd.Medium??= new TierLootConfig(), $"medium-{id}");
+                EditTier(Lang.Get(settingTierHard),   rwd.Hard  ??= new TierLootConfig(), $"hard-{id}");
+                EditTier(Lang.Get(settingTierBrutal), rwd.Brutal??= new TierLootConfig(), $"brutal-{id}");
+            }
+            ImGui.EndDisabled();
+        }
+
+        private static void EditTier(string title, TierLootConfig tier, string id)
+        {
+            if (ImGui.TreeNodeEx($"{title}##tier-{id}", ImGuiTreeNodeFlags.DefaultOpen))
+            {
+                // Rolls
+                int rolls = tier.Rolls;
+                ImGui.DragInt(Lang.Get(settingTierRolls) + $"##rolls-{id}", ref rolls, 1, 0, 1000);
+                tier.Rolls = Math.Clamp(rolls, 0, 1000);
+
+                // Empty weight
+                int empty = tier.EmptyWeight;
+                ImGui.DragInt(Lang.Get(settingTierEmptyWeight) + $"##empty-{id}", ref empty, 1, 0, int.MaxValue);
+                tier.EmptyWeight = Math.Max(0, empty);
+
+                // Gears (non-container)
+                int gmin = tier.GearsMin;
+                int gmax = tier.GearsMax;
+                ImGui.DragInt(Lang.Get(settingTierGearsMin) + $"##gmin-{id}", ref gmin, 1, 0, int.MaxValue);
+                ImGui.DragInt(Lang.Get(settingTierGearsMax) + $"##gmax-{id}", ref gmax, 1, 0, int.MaxValue);
+                if (gmax < gmin) gmax = gmin;
+                tier.GearsMin = Math.Max(0, gmin);
+                tier.GearsMax = Math.Max(0, gmax);
+
+                ImGui.Separator();
+                ImGui.TextUnformatted(Lang.Get(settingTierPoolHeader));
+
+                DrawPoolList(tier.Pool ??= new List<LootPoolEntry>(), id);
+
+                ImGui.TreePop();
+            }
+        }
+
+        private static void DrawPoolList(List<LootPoolEntry> pool, string id)
+        {
+            // Header row
+            ImGui.Columns(6, $"poolcols-{id}", true);
+            ImGui.Text(Lang.Get(settingPoolCode));
+            ImGui.NextColumn();
+            ImGui.Text(Lang.Get(settingPoolMin));
+            ImGui.NextColumn();
+            ImGui.Text(Lang.Get(settingPoolMax));
+            ImGui.NextColumn();
+            ImGui.Text(Lang.Get(settingPoolWeight));
+            ImGui.NextColumn();
+            ImGui.Text("#");
+            ImGui.NextColumn();
+            ImGui.Text("⇅");
+            ImGui.NextColumn();
+            ImGui.Separator();
+
+            // Entries
+            for (int i = 0; i < pool.Count; i++)
+            {
+                ImGui.PushID($"pool-{id}-{i}");
+                var entry = pool[i];
+
+                // Code
+                string code = entry.Code ?? string.Empty;
+                ImGui.SetNextItemWidth(-1);
+                ImGui.InputText("##code", ref code, 1024);
+                entry.Code = string.IsNullOrWhiteSpace(code) ? "game:flaxfibers" : code;
+                ImGui.NextColumn();
+
+                // Min
+                int min = entry.Min;
+                ImGui.DragInt("##min", ref min, 1, 0, int.MaxValue);
+                entry.Min = Math.Max(0, min);
+                ImGui.NextColumn();
+
+                // Max
+                int max = entry.Max;
+                ImGui.DragInt("##max", ref max, 1, 0, int.MaxValue);
+                if (max < entry.Min) max = entry.Min;
+                entry.Max = Math.Max(entry.Min, max);
+                ImGui.NextColumn();
+
+                // Weight
+                int w = entry.Weight;
+                ImGui.DragInt("##w", ref w, 1, 0, int.MaxValue);
+                entry.Weight = Math.Max(0, w);
+                ImGui.NextColumn();
+
+                // Remove
+                if (ImGui.SmallButton(Lang.Get(settingPoolRemove)))
+                {
+                    pool.RemoveAt(i);
+                    ImGui.PopID();
+                    ImGui.Columns(1);
+                    ImGui.Columns(6, $"poolcols-{id}", true);
+                    i--;
+                    continue;
+                }
+
+                ImGui.NextColumn();
+                bool canUp = i > 0;
+                bool canDn = i < pool.Count - 1;
+
+                if (!canUp) ImGui.BeginDisabled();
+                if (ImGui.SmallButton(Lang.Get(settingPoolMoveUp)))
+                {
+                    (pool[i - 1], pool[i]) = (pool[i], pool[i - 1]);
+                }
+
+                if (!canUp) ImGui.EndDisabled();
+
+                ImGui.SameLine();
+
+                if (!canDn) ImGui.BeginDisabled();
+                if (ImGui.SmallButton(Lang.Get(settingPoolMoveDown)))
+                {
+                    (pool[i + 1], pool[i]) = (pool[i], pool[i + 1]);
+                }
+
+                if (!canDn) ImGui.EndDisabled();
+
+                ImGui.NextColumn();
+
+                ImGui.PopID();
+            }
+
+            ImGui.Columns(1);
+            if (ImGui.SmallButton(Lang.Get(settingPoolAddEntry) + $"##add-{id}"))
+            {
+                pool.Add(new LootPoolEntry());
+            }
         }
     }
 }
