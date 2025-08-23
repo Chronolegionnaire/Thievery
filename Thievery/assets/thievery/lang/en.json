@@ -148,5 +148,28 @@
     "thievery:Config.Setting.Rewards.Pool.MoveUp": "Move reward entry up",
     "thievery:Config.Setting.Rewards.Pool.MoveDown": "Move reward entry down",
     "thievery:Lockpicking": "Lockpicking",
-    "thievery:Thievery": "Thievery"
+    "thievery:Thievery": "Thievery",
+
+    "thievery:keyname-forgotten": "Forgotten Key",
+    "thievery:keyname-discarded": "Discarded Key",
+    "thievery:keyname-worn": "Worn Key",
+    "thievery:keyname-ancient": "Ancient Key",
+    "thievery:keyname-weathered": "Weathered Key",
+    "thievery:keyname-rusty": "Rusty Key",
+    "thievery:keyname-tattered": "Tattered Key",
+    "thievery:keyname-faded": "Faded Key",
+    "thievery:keyname-dilapidated": "Dilapidated Key",
+    "thievery:keyname-obsolete": "Obsolete Key",
+    "thievery:keyname-aged": "Aged Key",
+    "thievery:keyname-oldrusty": "Old Rusty Key",
+    "thievery:keyname-forgottenancient": "Forgotten Ancient Key",
+    "thievery:keyname-wornweathered": "Worn Weathered Key",
+    "thievery:keyname-abandonedrusty": "Abandoned Rusty Key",
+    "thievery:keyname-crumblingold": "Crumbling Old Key",
+    "thievery:keyname-decayedrusty": "Decayed Rusty Key",
+    "thievery:keyname-mysteriousworn": "Mysterious Worn Key",
+    "thievery:keyname-shatteredold": "Shattered Old Key",
+    "thievery:keyname-agediron": "Aged Iron Key",
+    
+    "thievery:someone-long-ago": "someone a long time ago"
 }

@@ -154,6 +154,7 @@ namespace Thievery.LockAndKey
                     }
                 }
 
+                // ItemKey.cs (within HandleLockInteraction), after:
                 if (keyUid == blockLockUid)
                 {
                     bool newLockState = lockManager.ToggleLock(pos);
@@ -168,6 +169,16 @@ namespace Thievery.LockAndKey
                             thiev.ClearAllLockouts();
                             be.MarkDirty(true);
                         }
+                    }
+                    if (slot.Itemstack.Collectible.Code.Path == "key-aged" && api.Side == EnumAppSide.Client)
+                    {
+                        var capi = api as ICoreClientAPI;
+                        capi?.Network.GetChannel("thievery").SendPacket(new WorldgenPickRewardPacket
+                        {
+                            BlockPos = pos,
+                            LockUid  = lockData.LockUid,
+                            LockType = lockData.LockType
+                        });
                     }
                 }
             }

@@ -10,7 +10,7 @@ public class WorldGenLockingAndReinforcementConfig
     [DisplayFormat(DataFormatString = "P")]
     [Range(0d, 1d)]
     [DefaultValue(0.30d)]
-    public double StructureLockChance { get; set; } = 0.30d;
+    public double StructureLockChance { get; set; } = 0.60d;
 
     /// <summary>Minimum reinforcement value applied to structure blocks.</summary>
     [Category("Reinforcement")]
@@ -31,8 +31,8 @@ public class WorldGenLockingAndReinforcementConfig
 
     /// <summary>If true, all blocks in a structure are reinforced.</summary>
     [Category("Reinforcement")]
-    [DefaultValue(false)]
-    public bool ReinforceAllBlocks { get; set; } = false;
+    [DefaultValue(true)]
+    public bool ReinforceAllBlocks { get; set; } = true;
 
     /// <summary>Chance (0–1) for a structure to generate a corresponding key.</summary>
     [Category("Keys")]
