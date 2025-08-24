@@ -1,33 +1,31 @@
 ﻿using System.Linq;
 using System.Reflection;
 using HarmonyLib;
+using Thievery.Config;
 using Vintagestory.API.Common;
-using Vintagestory.API.MathTools;
-using Thievery.Config; // NEW
 
 [HarmonyPatch(typeof(LandClaim), "TestPlayerAccess")]
 public static class Patch_LandClaim_TestPlayerAccess
 {
     static void Postfix(IPlayer player, EnumBlockAccessFlags claimFlag, ref EnumPlayerAccessResult __result, LandClaim __instance)
     {
-        if (ModConfig.Instance?.Main?.BlockLockpickOnLandClaims == true)
-        {
-            return;
-        }
-        PropertyInfo blockSelProp = player.GetType().GetProperty("CurrentBlockSelection", BindingFlags.Instance | BindingFlags.Public);
-        if (blockSelProp == null) return;
+        if (ModConfig.Instance?.Main?.BlockLockpickOnLandClaims == true) return;
+        if ((claimFlag & EnumBlockAccessFlags.Use) == 0) return;
 
-        var blockSelection = blockSelProp.GetValue(player) as BlockSelection;
+        var blockSelProp = player.GetType().GetProperty("CurrentBlockSelection", BindingFlags.Instance | BindingFlags.Public);
+        var blockSelection = blockSelProp?.GetValue(player) as BlockSelection;
         if (blockSelection == null) return;
 
-        BlockPos pos = blockSelection.Position;
         var world = player.Entity.World;
-        var block = world.BlockAccessor.GetBlock(pos);
+        var block = world.BlockAccessor.GetBlock(blockSelection.Position);
+        if (block?.CollectibleBehaviors == null) return;
 
-        if (block?.CollectibleBehaviors != null &&
-            block.CollectibleBehaviors.Any(b => b.GetType().Name == "BlockBehaviorLockable"))
+        if (block.CollectibleBehaviors.Any(b => b.GetType().Name == "BlockBehaviorLockable"))
         {
-            __result = EnumPlayerAccessResult.OkOwner;
+            if (__result == EnumPlayerAccessResult.Denied)
+            {
+                __result = EnumPlayerAccessResult.OkOwner;
+            }
         }
     }
 }
