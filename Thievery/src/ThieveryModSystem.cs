@@ -175,7 +175,18 @@ namespace Thievery
 
         public override void Dispose()
         {
-            harmony.UnpatchAll(HarmonyID);
+            try
+            {
+                if (Harmony.HasAnyPatches(HarmonyID))
+                {
+                    (harmony ??= new Harmony(HarmonyID)).UnpatchAll(HarmonyID);
+                }
+            }
+            catch (Exception e)
+            {
+                api?.Logger?.Warning($"[Thievery] Harmony unpatch failed during Dispose: {e}");
+            }
+
             ConfigManager.UnloadModConfig();
             base.Dispose();
         }
