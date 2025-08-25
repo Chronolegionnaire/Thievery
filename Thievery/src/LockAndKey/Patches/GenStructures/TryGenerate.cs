@@ -368,50 +368,44 @@ namespace Thievery.Patches
 
         private static bool MatchesReinforcedBuildingBlock(string code)
         {
-            if (code.StartsWith("game:cobblestone"))
-                return true;
-            if (code.StartsWith("game:drystone"))
-                return true;
-            if (code.StartsWith("game:stonebrick"))
-                return true;
-            if (code.StartsWith("game:microblock"))
-                return true;
-            if (code.StartsWith("game:planks") && !code.StartsWith("game:planks-aged"))
-                return true;
-            if (code.StartsWith("game:polishedrock") && !code.StartsWith("game:polishedrockold"))
-                return true;
-            if (code.StartsWith("game:debarkedlog") &&
-                !(code.EndsWith("-aged") || code.EndsWith("-veryaged") || code.EndsWith("-veryagedrotten")))
-                return true;
-            if (code.StartsWith("game:log-placed") && !code.Contains("-aged"))
-                return true;
-
+            if (code.StartsWith("game:cobblestone")) return true;
+            if (code.StartsWith("game:drystone")) return true;
+            if (code.StartsWith("game:stonebrick")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:planks") && !code.StartsWith("game:planks-aged")) return true;
+            if (code.StartsWith("game:polishedrock") && !code.StartsWith("game:polishedrockold")) return true;
+            if (code.StartsWith("game:debarkedlog") && !(code.EndsWith("-aged") || code.EndsWith("-veryaged") || code.EndsWith("-veryagedrotten"))) return true;
+            if (code.StartsWith("game:log-placed") && !code.Contains("-aged")) return true;
+            if (code.StartsWith("game:slantedroof")) return true;
+            if (code.StartsWith("game:clayshingle")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:log-quad") && !code.Contains("-aged")) return true;
+            if (code.StartsWith("game:plaster")) return true;
+            if (code.StartsWith("game:glass") && !code.Contains("-vintage")) return true;
+            if (code.StartsWith("game:chiseledblock")) return true;
             return false;
         }
         private static bool MatchesReinforcedBuildingBlockExtended(string code)
         {
-            if (code.StartsWith("game:cobblestone"))
-                return true;
-            if (code.StartsWith("game:drystone"))
-                return true;
-            if (code.StartsWith("game:stonebrick"))
-                return true;
-            if (code.StartsWith("game:microblock"))
-                return true;
-            if (code.StartsWith("game:planks"))
-                return true;
-            if (code.StartsWith("game:polishedrock"))
-                return true;
-            if (code.StartsWith("game:debarkedlog"))
-                return true;
-            if (code.StartsWith("game:log-placed"))
-                return true;
-            if (code.StartsWith("game:cobbleskull"))
-                return true;
-            if (code.StartsWith("game:agedstonebrick"))
-                return true;
-            if (code.StartsWith("game:ironfence"))
-                return true;
+            if (code.StartsWith("game:cobblestone")) return true;
+            if (code.StartsWith("game:drystone")) return true;
+            if (code.StartsWith("game:stonebrick")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:planks")) return true;
+            if (code.StartsWith("game:polishedrock")) return true;
+            if (code.StartsWith("game:debarkedlog")) return true;
+            if (code.StartsWith("game:log-placed")) return true;
+            if (code.StartsWith("game:cobbleskull")) return true;
+            if (code.StartsWith("game:agedstonebrick")) return true;
+            if (code.StartsWith("game:ironfence")) return true;
+            if (code.StartsWith("game:slantedroof")) return true;
+            if (code.StartsWith("game:clayshingle")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:log-quad")) return true;
+            if (code.StartsWith("game:plaster")) return true;
+            if (code.StartsWith("game:glass")) return true;
+            if (code.StartsWith("game:brickruin")) return true;
+            if (code.StartsWith("game:chiseledblock")) return true;
             return false;
         }
 
