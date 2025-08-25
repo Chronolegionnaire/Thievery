@@ -1,10 +1,11 @@
-﻿using HarmonyLib;
+﻿﻿using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Thievery.LockAndKey;
 using Thievery.Config;
 using Vintagestory.API.Common;
+using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Util;
 using Vintagestory.GameContent;
@@ -27,7 +28,29 @@ namespace Thievery.Patches
             "game:chest-trunk*",
             "game:woodenfencegate*"
         };
-        
+        private static readonly string[] KeyNameLangKeys = new string[]
+        {
+            "thievery:keyname-forgotten",
+            "thievery:keyname-discarded",
+            "thievery:keyname-worn",
+            "thievery:keyname-ancient",
+            "thievery:keyname-weathered",
+            "thievery:keyname-rusty",
+            "thievery:keyname-tattered",
+            "thievery:keyname-faded",
+            "thievery:keyname-dilapidated",
+            "thievery:keyname-obsolete",
+            "thievery:keyname-aged",
+            "thievery:keyname-oldrusty",
+            "thievery:keyname-forgottenancient",
+            "thievery:keyname-wornweathered",
+            "thievery:keyname-abandonedrusty",
+            "thievery:keyname-crumblingold",
+            "thievery:keyname-decayedrusty",
+            "thievery:keyname-mysteriousworn",
+            "thievery:keyname-shatteredold",
+            "thievery:keyname-agediron"
+        };
         [HarmonyPostfix]
         public static void Postfix(
             WorldGenStructure __instance,
@@ -153,8 +176,8 @@ namespace Thievery.Patches
                                         {
                                             PlayerUID = "010100110100111101010011",
                                             GroupUid = 0,
-                                            LastPlayername = "someone a long time ago",
-                                            LastGroupname = "someone a long time ago",
+                                            LastPlayername = Lang.Get("thievery:someone-long-ago"),
+                                            LastGroupname = Lang.Get("thievery:someone-long-ago"),
                                             Strength = strength,
                                             Locked = true,
                                             LockedByItemCode = selectedPadlock
@@ -231,30 +254,19 @@ namespace Thievery.Patches
                                                     {
                                                         if (container.Inventory[i].Empty)
                                                         {
-                                                            string[] keyNames = new string[]
-                                                            {
-                                                                "Forgotten Key", "Discarded Key", "Worn Key",
-                                                                "Ancient Key", "Weathered Key",
-                                                                "Rusty Key", "Tattered Key", "Faded Key",
-                                                                "Dilapidated Key", "Obsolete Key",
-                                                                "Aged Key", "Old Rusty Key", "Forgotten Ancient Key",
-                                                                "Worn Weathered Key",
-                                                                "Abandoned Rusty Key", "Crumbling Old Key",
-                                                                "Decayed Rusty Key",
-                                                                "Mysterious Worn Key", "Shattered Old Key",
-                                                                "Aged Iron Key"
-                                                            };
-
-                                                            string chosenKeyName = keyNames[rand.Next(keyNames.Length)];
-                                                            Item keyItem =
-                                                                api.World.GetItem(
-                                                                    new AssetLocation("thievery:key-aged"));
+                                                            string nameKey = KeyNameLangKeys[rand.Next(KeyNameLangKeys.Length)];
+                                                            Item keyItem = api.World.GetItem(new AssetLocation("thievery:key-aged"));
                                                             if (keyItem != null)
                                                             {
                                                                 ItemStack keyStack = new ItemStack(keyItem);
-                                                                keyStack.Attributes.SetString("keyUID",
-                                                                    structureLockUid);
-                                                                keyStack.Attributes.SetString("keyName", chosenKeyName);
+                                                                keyStack.Attributes.SetString("keyUID", structureLockUid);
+
+                                                                // Option A (quick): store the localized string now
+                                                                keyStack.Attributes.SetString("keyName", Lang.Get(nameKey));
+
+                                                                // Option B (better): store the lang key and let the item resolve it at display time
+                                                                keyStack.Attributes.SetString("keyNameCode", nameKey);
+
                                                                 container.Inventory[i].Itemstack = keyStack;
                                                                 inserted = true;
                                                             }
@@ -316,8 +328,8 @@ namespace Thievery.Patches
                             {
                                 PlayerUID = "010100110100111101010011",
                                 GroupUid = 0,
-                                LastPlayername = "someone a long time ago",
-                                LastGroupname = "someone a long time ago",
+                                LastPlayername = Lang.Get("thievery:someone-long-ago"),
+                                LastGroupname = Lang.Get("thievery:someone-long-ago"),
                                 Strength = strength,
                                 Locked = false,
                                 LockedByItemCode = ""
@@ -356,50 +368,44 @@ namespace Thievery.Patches
 
         private static bool MatchesReinforcedBuildingBlock(string code)
         {
-            if (code.StartsWith("game:cobblestone"))
-                return true;
-            if (code.StartsWith("game:drystone"))
-                return true;
-            if (code.StartsWith("game:stonebrick"))
-                return true;
-            if (code.StartsWith("game:microblock"))
-                return true;
-            if (code.StartsWith("game:planks") && !code.StartsWith("game:planks-aged"))
-                return true;
-            if (code.StartsWith("game:polishedrock") && !code.StartsWith("game:polishedrockold"))
-                return true;
-            if (code.StartsWith("game:debarkedlog") &&
-                !(code.EndsWith("-aged") || code.EndsWith("-veryaged") || code.EndsWith("-veryagedrotten")))
-                return true;
-            if (code.StartsWith("game:log-placed") && !code.Contains("-aged"))
-                return true;
-
+            if (code.StartsWith("game:cobblestone")) return true;
+            if (code.StartsWith("game:drystone")) return true;
+            if (code.StartsWith("game:stonebrick")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:planks") && !code.StartsWith("game:planks-aged")) return true;
+            if (code.StartsWith("game:polishedrock") && !code.StartsWith("game:polishedrockold")) return true;
+            if (code.StartsWith("game:debarkedlog") && !(code.EndsWith("-aged") || code.EndsWith("-veryaged") || code.EndsWith("-veryagedrotten"))) return true;
+            if (code.StartsWith("game:log-placed") && !code.Contains("-aged")) return true;
+            if (code.StartsWith("game:slantedroof")) return true;
+            if (code.StartsWith("game:clayshingle")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:log-quad") && !code.Contains("-aged")) return true;
+            if (code.StartsWith("game:plaster")) return true;
+            if (code.StartsWith("game:glass") && !code.Contains("-vintage")) return true;
+            if (code.StartsWith("game:chiseledblock")) return true;
             return false;
         }
         private static bool MatchesReinforcedBuildingBlockExtended(string code)
         {
-            if (code.StartsWith("game:cobblestone"))
-                return true;
-            if (code.StartsWith("game:drystone"))
-                return true;
-            if (code.StartsWith("game:stonebrick"))
-                return true;
-            if (code.StartsWith("game:microblock"))
-                return true;
-            if (code.StartsWith("game:planks"))
-                return true;
-            if (code.StartsWith("game:polishedrock"))
-                return true;
-            if (code.StartsWith("game:debarkedlog"))
-                return true;
-            if (code.StartsWith("game:log-placed"))
-                return true;
-            if (code.StartsWith("game:cobbleskull"))
-                return true;
-            if (code.StartsWith("game:agedstonebrick"))
-                return true;
-            if (code.StartsWith("game:ironfence"))
-                return true;
+            if (code.StartsWith("game:cobblestone")) return true;
+            if (code.StartsWith("game:drystone")) return true;
+            if (code.StartsWith("game:stonebrick")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:planks")) return true;
+            if (code.StartsWith("game:polishedrock")) return true;
+            if (code.StartsWith("game:debarkedlog")) return true;
+            if (code.StartsWith("game:log-placed")) return true;
+            if (code.StartsWith("game:cobbleskull")) return true;
+            if (code.StartsWith("game:agedstonebrick")) return true;
+            if (code.StartsWith("game:ironfence")) return true;
+            if (code.StartsWith("game:slantedroof")) return true;
+            if (code.StartsWith("game:clayshingle")) return true;
+            if (code.StartsWith("game:microblock")) return true;
+            if (code.StartsWith("game:log-quad")) return true;
+            if (code.StartsWith("game:plaster")) return true;
+            if (code.StartsWith("game:glass")) return true;
+            if (code.StartsWith("game:brickruin")) return true;
+            if (code.StartsWith("game:chiseledblock")) return true;
             return false;
         }
 

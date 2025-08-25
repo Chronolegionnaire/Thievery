@@ -1,0 +1,23 @@
+[
+  {
+    "op": "replace",
+    "path": "/behaviors/0/name",
+    "value": "Lockable",
+    "file": "game:blocktypes/metal/door.json",
+    "side": "Server"
+  },
+  {
+    "op": "replace",
+    "path": "/behaviors/1/name",
+    "value": "Door",
+    "file": "game:blocktypes/metal/door.json",
+    "side": "Server"
+  },
+  {
+    "op": "replace",
+    "path": "/behaviors/2/name",
+    "value": "BlockEntityInteract",
+    "file": "game:blocktypes/metal/door.json",
+    "side": "Server"
+  }
+]
