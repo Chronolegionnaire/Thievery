@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using Thievery.Config;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -12,7 +15,7 @@ namespace Thievery.LockAndKey
         private string lockUID;
         private bool   lockedState;
         private string lockType;
-        
+        private static Dictionary<string, (string Display, PropertyInfo Prop)> lockTypeIndex;
         private long globalLockoutUntilMs;
         private readonly Dictionary<string, long> perPlayerLockoutUntilMs = new();
 
@@ -34,7 +37,6 @@ namespace Thievery.LockAndKey
         }
 
         public BlockEntityThieveryLockData(BlockEntity be) : base(be) { }
-
         public bool IsInLockoutFor(IWorldAccessor world, string playerUid)
         {
             long now = world?.ElapsedMilliseconds ?? 0;
@@ -132,7 +134,94 @@ namespace Thievery.LockAndKey
 
             worldGenPickRewardGranted = tree.GetBool("worldGenPickRewardGranted", false);
         }
-        
+        private int? TryGetPadlockDifficulty(string rawType)
+        {
+            var cfg = ModConfig.Instance?.Difficulty;
+            if (cfg == null) return null;
+
+            EnsureLockTypeIndex(cfg);
+
+            string key = NormalizeKey(rawType);
+            if (key == null) return null;
+
+            if (lockTypeIndex != null && lockTypeIndex.TryGetValue(key, out var entry))
+            {
+                return (int)entry.Prop.GetValue(cfg);
+            }
+
+            return null;
+        }
+
+        private static string FormatLockType(string rawType)
+        {
+            var cfg = ModConfig.Instance?.Difficulty;
+            if (cfg != null)
+            {
+                EnsureLockTypeIndex(cfg);
+                string key = NormalizeKey(rawType);
+                if (key != null && lockTypeIndex != null && lockTypeIndex.TryGetValue(key, out var entry))
+                {
+                    // Perfect, display straight from the PascalCase stem
+                    return entry.Display;
+                }
+            }
+
+            // Fallback: old behavior (handles things like "padlock-copper")
+            if (string.IsNullOrWhiteSpace(rawType)) return null;
+            string type = rawType;
+            if (type.StartsWith("padlock-", StringComparison.OrdinalIgnoreCase))
+                type = type.Substring("padlock-".Length);
+
+            type = type.Replace("-", " ");
+            var ti = CultureInfo.InvariantCulture.TextInfo;
+            return ti.ToTitleCase(type);
+        }
+
+        private static string NormalizeKey(string raw)
+        {
+            if (string.IsNullOrWhiteSpace(raw)) return null;
+
+            string s = raw.Trim();
+            if (s.StartsWith("padlock-", StringComparison.OrdinalIgnoreCase))
+                s = s.Substring("padlock-".Length);
+
+            // remove spaces and hyphens, lowercase
+            s = s.Replace("-", "").Replace(" ", "").ToLowerInvariant();
+            return s;
+        }
+
+        /// <summary>Split a PascalCase stem like "BlackBronze" into "Black Bronze".</summary>
+        private static string DisplayFromStem(string stem)
+        {
+            if (string.IsNullOrEmpty(stem)) return stem;
+            // Insert spaces before capitals (but not at the very start)
+            string spaced = Regex.Replace(stem, "(\\B[A-Z])", " $1");
+            return spaced;
+        }
+
+        /// <summary>Build the index once from the config type.</summary>
+        private static void EnsureLockTypeIndex(object difficultyConfig)
+        {
+            if (lockTypeIndex != null || difficultyConfig == null) return;
+
+            lockTypeIndex = new Dictionary<string, (string Display, PropertyInfo Prop)>();
+
+            var t = difficultyConfig.GetType();
+            foreach (var prop in t.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+            {
+                if (prop.PropertyType != typeof(int)) continue;
+                if (!prop.Name.EndsWith("PadlockDifficulty", StringComparison.Ordinal)) continue;
+
+                // Stem: e.g. "BlackBronze" from "BlackBronzePadlockDifficulty"
+                string stem = prop.Name.Substring(0, prop.Name.Length - "PadlockDifficulty".Length);
+
+                string display = DisplayFromStem(stem);              // "Black Bronze"
+                string key     = NormalizeKey(stem);                 // "blackbronze"
+
+                // Guard against duplicates; last one wins is fine here
+                lockTypeIndex[key] = (display, prop);
+            }
+        }
         public override void GetBlockInfo(IPlayer forPlayer, System.Text.StringBuilder description)
         {
             base.GetBlockInfo(forPlayer, description);
@@ -141,8 +230,25 @@ namespace Thievery.LockAndKey
             {
                 string lockedText = lockedState ? Lang.Get("thievery:locked") : Lang.Get("thievery:unlocked");
                 string stateLine  = Lang.Get("thievery:locked-state", lockedText);
-                if (!description.ToString().Contains(stateLine)) description.AppendLine(stateLine);
+                if (!description.ToString().Contains(stateLine))
+                    description.AppendLine(stateLine);
             }
+
+            if (!string.IsNullOrWhiteSpace(lockType))
+            {
+                string displayType = FormatLockType(lockType);
+                if (!string.IsNullOrEmpty(displayType))
+                {
+                    description.AppendLine($"Lock Type: {displayType}");
+
+                    var diff = TryGetPadlockDifficulty(lockType);
+                    if (diff.HasValue)
+                    {
+                        description.AppendLine($"Difficulty: {diff.Value}");
+                    }
+                }
+            }
+
 
             var world = Blockentity?.Api?.World;
             if (world == null) return;

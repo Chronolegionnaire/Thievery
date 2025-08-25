@@ -68,7 +68,7 @@ public static class LockpickDefaults
             Easy = new TierLootConfig
             {
                 Rolls = 5,
-                EmptyWeight = 5,
+                EmptyWeight = 10,
                 Pool = new List<LootPoolEntry>
                 {
                     new() { Code = "game:stackrandomizer-seed",                Min = 1, Max = 1, Weight = 3 },
@@ -84,7 +84,7 @@ public static class LockpickDefaults
             Medium = new TierLootConfig
             {
                 Rolls = 5,
-                EmptyWeight = 5,
+                EmptyWeight = 10,
                 Pool = new List<LootPoolEntry>
                 {
                     new() { Code = "game:stackrandomizer-ore",                    Min = 1, Max = 1, Weight = 3 },
@@ -100,7 +100,7 @@ public static class LockpickDefaults
             Hard = new TierLootConfig
             {
                 Rolls = 5,
-                EmptyWeight = 5,
+                EmptyWeight = 10,
                 Pool = new List<LootPoolEntry>
                 {
                     new() { Code = "game:stackrandomizer-ruinedweapon",       Min = 1, Max = 1, Weight = 3 },
@@ -115,7 +115,7 @@ public static class LockpickDefaults
             Brutal = new TierLootConfig
             {
                 Rolls = 5,
-                EmptyWeight = 5,
+                EmptyWeight = 10,
                 Pool = new List<LootPoolEntry>
                 {
                     new() { Code = "game:stackrandomizer-alljonas",        Min = 1, Max = 1, Weight = 1 },

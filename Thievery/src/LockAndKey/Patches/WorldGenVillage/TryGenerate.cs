@@ -138,9 +138,7 @@ namespace Thievery.Patches
                                 }
 
                                 bool hasReinf = block.HasBehavior<BlockBehaviorReinforcable>(false);
-                                if (!hasReinf) continue;
-
-                                if (rand.NextDouble() < ModConfig.Instance.WorldGen.StructureLockChance)
+                                if (hasReinf && rand.NextDouble() < ModConfig.Instance.WorldGen.StructureLockChance)
                                 {
                                     if (!isCollapsedChest)
                                     {
@@ -158,7 +156,9 @@ namespace Thievery.Patches
                                                 padlock);
                                         }
                                     }
-
+                                }
+                                if (rand.NextDouble() < ModConfig.Instance.WorldGen.StructureKeyChance)
+                                {
                                     if (blockCode.StartsWith("game:chest-trunk")
                                         || blockCode.StartsWith("game:chest")
                                         || blockCode.StartsWith("game:storagevessel")
@@ -188,6 +188,7 @@ namespace Thievery.Patches
                 }
             }
         }
+
         private static bool MatchesTarget(string code)
         {
             foreach (var target in TargetBlockCodes)

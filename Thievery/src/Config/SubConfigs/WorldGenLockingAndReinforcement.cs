@@ -38,6 +38,6 @@ public class WorldGenLockingAndReinforcementConfig
     [Category("Keys")]
     [DisplayFormat(DataFormatString = "P")]
     [Range(0d, 1d)]
-    [DefaultValue(0.03d)]
-    public double StructureKeyChance { get; set; } = 0.03d;
+    [DefaultValue(0.01d)]
+    public double StructureKeyChance { get; set; } = 0.01d;
 }

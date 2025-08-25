@@ -14,20 +14,20 @@ namespace Thievery.Config.SubConfigs
         [Category("Damage")]
         [Range(0, int.MaxValue)]
         [DefaultValue(1.5)]
-        public double LockpickDamageBase { get; set; } = 1.5;
+        public double LockpickDamageBase { get; set; } = 2;
 
         /// <summary>Base durability damage (before difficulty multiplier) to the tension wrench per minigame tick.</summary>
         [Category("Damage")]
         [Range(0, int.MaxValue)]
         [DefaultValue(2)]
-        public double TensionWrenchDamageBase { get; set; } = 0.5;
+        public double TensionWrenchDamageBase { get; set; } = 3;
         
         
         /// <summary>Initial durability damage multiplier to the tension wrench on mini game start. 0 to disable.</summary>
         [Category("Damage")]
         [Range(0, int.MaxValue)]
         [DefaultValue(3)]
-        public int InitialDamageMultiplier { get; set; } = 3;
+        public int InitialDamageMultiplier { get; set; } = 5;
 
         /// <summary>
         /// Binding order threshold (0–100) for pin feedback/ordering.

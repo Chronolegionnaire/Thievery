@@ -51,6 +51,7 @@ namespace Thievery.Patches
             "thievery:keyname-shatteredold",
             "thievery:keyname-agediron"
         };
+
         [HarmonyPostfix]
         public static void Postfix(
             WorldGenStructure __instance,
@@ -58,117 +59,82 @@ namespace Thievery.Patches
             IBlockAccessor blockAccessor,
             IWorldAccessor worldForCollectibleResolve)
         {
-            if (!__result || __instance.LastPlacedSchematicLocation == null)
-                return;
-            string gen   = __instance.Code.ToString();
+            if (!__result || __instance.LastPlacedSchematicLocation == null) return;
+
+            string gen = __instance.Code.ToString();
             string schem = __instance.LastPlacedSchematic.FromFileName;
-            string key   = $"{gen}:{schem}";
+            string key = $"{gen}:{schem}";
 
             bool isBlacklisted = ModConfig.Instance.Blacklist.StructureBlacklist
                 .Any(s => s.Equals(key, StringComparison.OrdinalIgnoreCase));
-            if (isBlacklisted)
-            { return;
-            }
-            HashSet<string> processedContainerIds = new HashSet<string>();
+            if (isBlacklisted) return;
+
             var api = worldForCollectibleResolve.Api;
             var modSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
             var lockManager = modSystem?.LockManager;
             var reinforcementSystem = api.ModLoader.GetModSystem<ModSystemBlockReinforcement>();
 
-            if (lockManager == null || reinforcementSystem == null)
-            {
-                return;
-            }
+            if (lockManager == null || reinforcementSystem == null) return;
 
             var blockAccessorWorldGen = blockAccessor as BlockAccessorWorldGen;
-            if (blockAccessorWorldGen == null)
-            {
-                return;
-            }
+            if (blockAccessorWorldGen == null) return;
+
             Cuboidi location = __instance.LastPlacedSchematicLocation;
             Random rand = CreateDeterministicRandom(api.World.Seed, location.MinX, location.MinY, location.MinZ);
 
             string[] padlockTypes = new string[]
             {
-                "game:padlock-bismuthbronze",
-                "game:padlock-tinbronze",
-                "game:padlock-blackbronze",
-                "game:padlock-iron",
-                "game:padlock-meteoriciron",
-                "game:padlock-steel",
-                "game:padlock-copper",
-                "game:padlock-nickel",
-                "game:padlock-silver",
-                "game:padlock-gold",
-                "game:padlock-titanium",
-                "game:padlock-lead",
-                "game:padlock-zinc",
-                "game:padlock-tin",
-                "game:padlock-chromium",
-                "game:padlock-cupronickel",
-                "game:padlock-electrum",
-                "game:padlock-platinum"
+                "game:padlock-bismuthbronze", "game:padlock-tinbronze", "game:padlock-blackbronze",
+                "game:padlock-iron", "game:padlock-meteoriciron", "game:padlock-steel", "game:padlock-copper",
+                "game:padlock-nickel", "game:padlock-silver", "game:padlock-gold", "game:padlock-titanium",
+                "game:padlock-lead", "game:padlock-zinc", "game:padlock-tin", "game:padlock-chromium",
+                "game:padlock-cupronickel", "game:padlock-electrum", "game:padlock-platinum"
             };
 
-            int lockedCount = 0;
-            int totalCount = 0;
-            int reinforcedCount = 0;
             string structureLockUid = $"structlock_{location.MinX}_{location.MinY}_{location.MinZ}";
+
             for (int x = location.MinX; x <= location.MaxX; x++)
             {
                 for (int y = location.MinY; y <= location.MaxY; y++)
                 {
                     for (int z = location.MinZ; z <= location.MaxZ; z++)
                     {
-                        totalCount++;
                         BlockPos pos = new BlockPos(x, y, z);
                         Block block = blockAccessor.GetBlock(pos);
+                        if (block?.Code == null) continue;
+
                         string blockCode = block.Code.ToString();
                         if (MatchesTarget(blockCode))
                         {
                             bool isCollapsedChest = false;
                             if (blockCode.StartsWith("game:chest"))
                             {
-                                BlockEntity be = blockAccessor.GetBlockEntity(pos);
-                                BlockEntityGenericTypedContainer chestEntity = be as BlockEntityGenericTypedContainer;
-                                if (chestEntity != null)
+                                if (blockAccessor.GetBlockEntity(pos) is BlockEntityGenericTypedContainer chestEntity)
                                 {
                                     string chestType = chestEntity.type;
-                                    if (chestType != null && chestType.StartsWith("collapsed"))
-                                    {
-                                        isCollapsedChest = true;
-                                    }
+                                    if (chestType != null && chestType.StartsWith("collapsed")) isCollapsedChest = true;
                                 }
                             }
                             bool hasReinforcementBehavior = block.HasBehavior<BlockBehaviorReinforcable>(false);
-                            if (hasReinforcementBehavior)
+                            if (hasReinforcementBehavior &&
+                                rand.NextDouble() < ModConfig.Instance.WorldGen.StructureLockChance)
                             {
-                                double roll = rand.NextDouble();
-                                if (roll < ModConfig.Instance.WorldGen.StructureLockChance)
+                                if (!isCollapsedChest)
                                 {
-                                    if (!isCollapsedChest)
+                                    int strength = rand.Next(
+                                        ModConfig.Instance.WorldGen.StructureMinReinforcement,
+                                        ModConfig.Instance.WorldGen.StructureMaxReinforcement + 1
+                                    );
+
+                                    int chunkX = pos.X >> 5, chunkY = pos.Y >> 5, chunkZ = pos.Z >> 5;
+                                    IWorldChunk chunk = blockAccessorWorldGen.GetChunk(chunkX, chunkY, chunkZ);
+                                    if (chunk != null)
                                     {
-                                        int strength = rand.Next(
-                                            ModConfig.Instance.WorldGen.StructureMinReinforcement,
-                                            ModConfig.Instance.WorldGen.StructureMaxReinforcement + 1
-                                        );
-
-                                        int chunkX = pos.X >> 5;
-                                        int chunkY = pos.Y >> 5;
-                                        int chunkZ = pos.Z >> 5;
-                                        IWorldChunk chunk = blockAccessorWorldGen.GetChunk(chunkX, chunkY, chunkZ);
-                                        if (chunk == null)
-                                        {
-                                            continue;
-                                        }
-
                                         var reinforcements =
                                             chunk.GetModdata<Dictionary<int, BlockReinforcement>>("reinforcements")
                                             ?? new Dictionary<int, BlockReinforcement>();
 
-                                        int localX = pos.X & 31;
-                                        int localY = pos.Y & 31;
-                                        int localZ = pos.Z & 31;
+                                        int localX = pos.X & 31, localY = pos.Y & 31, localZ = pos.Z & 31;
                                         int localIndex = (localY << 16) | (localZ << 8) | localX;
                                         string selectedPadlock = GetWeightedPadlock(rand, padlockTypes);
 
@@ -187,6 +153,7 @@ namespace Thievery.Patches
                                         byte[] serializedData = SerializerUtil.Serialize(reinforcements);
                                         chunk.SetModdata("reinforcements", serializedData);
                                         chunk.MarkModified();
+
                                         var blockEntity = blockAccessor.GetBlockEntity(pos);
                                         if (blockEntity == null &&
                                             blockAccessor is BlockAccessorWorldGen worldGenAccessor)
@@ -217,111 +184,96 @@ namespace Thievery.Patches
                                                 $"[Thievery] Failed to spawn block entity for {blockCode} at {pos}.");
                                         }
                                     }
-
-                                    if (blockCode.StartsWith("game:chest-trunk") ||
-                                        blockCode.StartsWith("game:chest") ||
-                                        blockCode.StartsWith("game:storagevessel") ||
-                                        blockCode.StartsWith("game:groundstorage"))
+                                }
+                            }
+                            if (rand.NextDouble() < ModConfig.Instance.WorldGen.StructureKeyChance)
+                            {
+                                if (blockCode.StartsWith("game:chest-trunk")
+                                    || blockCode.StartsWith("game:chest")
+                                    || blockCode.StartsWith("game:storagevessel")
+                                    || blockCode.StartsWith("game:groundstorage"))
+                                {
+                                    var container =
+                                        blockAccessor.GetBlockEntity(pos) as BlockEntityGenericTypedContainer;
+                                    if (container != null)
                                     {
-                                        BlockEntityGenericTypedContainer container =
-                                            blockAccessor.GetBlockEntity(pos) as BlockEntityGenericTypedContainer;
-                                        if (container != null)
+                                        string containerId = container.Pos.ToString();
+                                        if (!GlobalProcessedContainerIds.Contains(containerId))
                                         {
-                                            string containerId = container.Pos.ToString();
-                                            if (!GlobalProcessedContainerIds.Contains(containerId))
+                                            bool keyAlreadyExists = false;
+                                            for (int i = 0; i < container.Inventory.Count; i++)
                                             {
-                                                bool keyAlreadyExists = false;
-                                                for (int i = 0; i < container.Inventory.Count; i++)
+                                                if (!container.Inventory[i].Empty)
                                                 {
-                                                    if (!container.Inventory[i].Empty)
+                                                    var stack = container.Inventory[i].Itemstack;
+                                                    if (stack.Collectible.Code.Path.Equals("thievery:key-aged",
+                                                            StringComparison.OrdinalIgnoreCase)
+                                                        && stack.Attributes.GetString("keyUID") == structureLockUid)
                                                     {
-                                                        if (container.Inventory[i].Itemstack.Collectible.Code.Path
-                                                                .Equals("thievery:key-aged",
-                                                                    StringComparison.OrdinalIgnoreCase)
-                                                            && container.Inventory[i].Itemstack.Attributes
-                                                                .GetString("keyUID") == structureLockUid)
-                                                        {
-                                                            keyAlreadyExists = true;
-                                                            break;
-                                                        }
+                                                        keyAlreadyExists = true;
+                                                        break;
                                                     }
                                                 }
+                                            }
 
-                                                if (!keyAlreadyExists)
+                                            if (!keyAlreadyExists)
+                                            {
+                                                for (int i = 0; i < container.Inventory.Count; i++)
                                                 {
-                                                    bool inserted = false;
-                                                    for (int i = 0; i < container.Inventory.Count; i++)
+                                                    if (container.Inventory[i].Empty)
                                                     {
-                                                        if (container.Inventory[i].Empty)
+                                                        string nameKey =
+                                                            KeyNameLangKeys[rand.Next(KeyNameLangKeys.Length)];
+                                                        Item keyItem =
+                                                            api.World.GetItem(new AssetLocation("thievery:key-aged"));
+                                                        if (keyItem != null)
                                                         {
-                                                            string nameKey = KeyNameLangKeys[rand.Next(KeyNameLangKeys.Length)];
-                                                            Item keyItem = api.World.GetItem(new AssetLocation("thievery:key-aged"));
-                                                            if (keyItem != null)
-                                                            {
-                                                                ItemStack keyStack = new ItemStack(keyItem);
-                                                                keyStack.Attributes.SetString("keyUID", structureLockUid);
+                                                            ItemStack keyStack = new ItemStack(keyItem);
+                                                            keyStack.Attributes.SetString("keyUID", structureLockUid);
+                                                            keyStack.Attributes.SetString("keyName", Lang.Get(nameKey));
+                                                            keyStack.Attributes.SetString("keyNameCode", nameKey);
 
-                                                                // Option A (quick): store the localized string now
-                                                                keyStack.Attributes.SetString("keyName", Lang.Get(nameKey));
-
-                                                                // Option B (better): store the lang key and let the item resolve it at display time
-                                                                keyStack.Attributes.SetString("keyNameCode", nameKey);
-
-                                                                container.Inventory[i].Itemstack = keyStack;
-                                                                inserted = true;
-                                                            }
-
-                                                            break;
+                                                            container.Inventory[i].Itemstack = keyStack;
+                                                            GlobalProcessedContainerIds.Add(containerId);
                                                         }
-                                                    }
-                                                    if (inserted)
-                                                    {
-                                                        GlobalProcessedContainerIds.Add(containerId);
+
+                                                        break;
                                                     }
                                                 }
                                             }
                                         }
-                                        else
-                                        {
-                                            api.Logger.Warning(
-                                                $"[Thievery] Could not find a container inventory on {blockCode} at {pos} to insert a key-aged.");
-                                        }
                                     }
-
-                                    lockedCount++;
+                                    else
+                                    {
+                                        api.Logger.Warning(
+                                            $"[Thievery] Could not find a container inventory on {blockCode} at {pos} to insert a key-aged.");
+                                    }
                                 }
                             }
                         }
-                        else if ((ModConfig.Instance.WorldGen.ReinforcedBuildingBlocks || ModConfig.Instance.WorldGen.ReinforceAllBlocks) && 
-                                 (ModConfig.Instance.WorldGen.ReinforceAllBlocks ? MatchesReinforcedBuildingBlockExtended(blockCode) : MatchesReinforcedBuildingBlock(blockCode)))
+                        else if ((ModConfig.Instance.WorldGen.ReinforcedBuildingBlocks ||
+                                  ModConfig.Instance.WorldGen.ReinforceAllBlocks) &&
+                                 (ModConfig.Instance.WorldGen.ReinforceAllBlocks
+                                     ? MatchesReinforcedBuildingBlockExtended(blockCode)
+                                     : MatchesReinforcedBuildingBlock(blockCode)))
                         {
                             bool hasReinforcementBehavior = block.HasBehavior<BlockBehaviorReinforcable>(false);
-                            if (!hasReinforcementBehavior)
-                            {
-                                continue;
-                            }
+                            if (!hasReinforcementBehavior) continue;
 
                             int strength = rand.Next(
                                 ModConfig.Instance.WorldGen.StructureMinReinforcement,
                                 ModConfig.Instance.WorldGen.StructureMaxReinforcement + 1
                             );
 
-                            int chunkX = pos.X >> 5;
-                            int chunkY = pos.Y >> 5;
-                            int chunkZ = pos.Z >> 5;
+                            int chunkX = pos.X >> 5, chunkY = pos.Y >> 5, chunkZ = pos.Z >> 5;
                             IWorldChunk chunk = blockAccessorWorldGen.GetChunk(chunkX, chunkY, chunkZ);
-                            if (chunk == null)
-                            {
-                                continue;
-                            }
+                            if (chunk == null) continue;
 
                             var reinforcements =
                                 chunk.GetModdata<Dictionary<int, BlockReinforcement>>("reinforcements")
                                 ?? new Dictionary<int, BlockReinforcement>();
 
-                            int localX = pos.X & 31;
-                            int localY = pos.Y & 31;
-                            int localZ = pos.Z & 31;
+                            int localX = pos.X & 31, localY = pos.Y & 31, localZ = pos.Z & 31;
                             int localIndex = (localY << 16) | (localZ << 8) | localX;
 
                             var bre = new BlockReinforcement
@@ -339,8 +291,6 @@ namespace Thievery.Patches
                             byte[] serializedData = SerializerUtil.Serialize(reinforcements);
                             chunk.SetModdata("reinforcements", serializedData);
                             chunk.MarkModified();
-
-                            reinforcedCount++;
                         }
                     }
                 }
