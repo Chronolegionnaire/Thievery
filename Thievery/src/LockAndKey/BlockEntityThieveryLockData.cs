@@ -161,12 +161,9 @@ namespace Thievery.LockAndKey
                 string key = NormalizeKey(rawType);
                 if (key != null && lockTypeIndex != null && lockTypeIndex.TryGetValue(key, out var entry))
                 {
-                    // Perfect, display straight from the PascalCase stem
                     return entry.Display;
                 }
             }
-
-            // Fallback: old behavior (handles things like "padlock-copper")
             if (string.IsNullOrWhiteSpace(rawType)) return null;
             string type = rawType;
             if (type.StartsWith("padlock-", StringComparison.OrdinalIgnoreCase))
@@ -185,21 +182,17 @@ namespace Thievery.LockAndKey
             if (s.StartsWith("padlock-", StringComparison.OrdinalIgnoreCase))
                 s = s.Substring("padlock-".Length);
 
-            // remove spaces and hyphens, lowercase
             s = s.Replace("-", "").Replace(" ", "").ToLowerInvariant();
             return s;
         }
 
-        /// <summary>Split a PascalCase stem like "BlackBronze" into "Black Bronze".</summary>
         private static string DisplayFromStem(string stem)
         {
             if (string.IsNullOrEmpty(stem)) return stem;
-            // Insert spaces before capitals (but not at the very start)
             string spaced = Regex.Replace(stem, "(\\B[A-Z])", " $1");
             return spaced;
         }
 
-        /// <summary>Build the index once from the config type.</summary>
         private static void EnsureLockTypeIndex(object difficultyConfig)
         {
             if (lockTypeIndex != null || difficultyConfig == null) return;
@@ -212,13 +205,10 @@ namespace Thievery.LockAndKey
                 if (prop.PropertyType != typeof(int)) continue;
                 if (!prop.Name.EndsWith("PadlockDifficulty", StringComparison.Ordinal)) continue;
 
-                // Stem: e.g. "BlackBronze" from "BlackBronzePadlockDifficulty"
                 string stem = prop.Name.Substring(0, prop.Name.Length - "PadlockDifficulty".Length);
 
-                string display = DisplayFromStem(stem);              // "Black Bronze"
-                string key     = NormalizeKey(stem);                 // "blackbronze"
-
-                // Guard against duplicates; last one wins is fine here
+                string display = DisplayFromStem(stem);
+                string key     = NormalizeKey(stem);
                 lockTypeIndex[key] = (display, prop);
             }
         }
