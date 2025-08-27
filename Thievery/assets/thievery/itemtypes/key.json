@@ -14,6 +14,12 @@
     "*": {"metal": { "base": "game:block/metal/ingot/{metal}" }}},
   "creativeinventory": { "general": ["*"], "items": ["*"] },
   "attributes": {
+    "keyhookable": true,
+    "onkeyhookTransform": {
+      "translation": { "x": 0.35, "y": -0.6, "z": 0.5 },
+      "rotation": { "x": 90, "y": 0, "z": 90 },
+      "scale": 1
+    },
     "onTongTransform": {
       "translation": { "x": -0.7, "y": -0.8, "z": -0.6 },
       "rotation": { "x": -73, "y": -76, "z": 103 }

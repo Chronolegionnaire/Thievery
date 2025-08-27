@@ -1,0 +1,78 @@
+﻿{
+  "code": "keyhook",
+  "class": "BlockKeyHook",
+  "entityClass": "BlockEntityKeyHook",
+  "behaviors": [
+    { "name": "HorizontalAttachable", "properties": { "dropBlockFace": "east" } }
+  ],
+  "variantgroups": [
+    { "code": "wood", "states": ["aged", "agedebony", "rottenebony"], "loadFromProperties": "game:block/wood" },
+    { "code": "side", "loadFromProperties": "abstract/horizontalorientation" }
+  ],
+  "texturesByType": {
+    "*-agedebony-*": {"wood": { "base": "game:block/wood/planks/aged/ebony1" }},
+    "*": {"wood": { "base": "game:block/wood/planks/{wood}1" }}},
+  "shapeByType": {
+    "*-north": { "base": "thievery:keyhook", "rotateY": 0 },
+    "*-east": { "base": "thievery:keyhook", "rotateY": 270 },
+    "*-west": { "base": "thievery:keyhook", "rotateY": 90 },
+    "*-south": { "base": "thievery:keyhook", "rotateY": 180 }
+  },
+  "attributes": {
+    "reinforcable": true
+  },
+  "heldTpIdleAnimation": "holdunderarm",
+  "creativeinventory": { "general": ["*-east"], "decorative": ["*-east"] },
+  "blockmaterial": "Wood",
+  "replaceable": 900,
+  "resistance": 1.5,
+  "lightAbsorption": 1,
+  "sidesolid": {
+    "all": false
+  },
+  "sideopaque": {
+    "all": false
+  },
+  "sounds": {
+    "place": "game:block/planks",
+    "hit": "game:block/planks",
+    "break": "game:block/planks",
+    "walk": "game:walk/wood"
+  },
+  "combustibleProps": {
+    "burnTemperature": 600,
+    "burnDuration": 35
+  },
+  "materialDensity": 400,
+  "tpHandTransform": {
+    "translation": { "x": -0.7, "y": 0.52, "z": -0.81 },
+    "rotation": { "x": 99, "y": -50, "z": 80 },
+    "origin": { "x": -0, "y": -0, "z": -0 },
+    "scale": 0.75
+  },
+  "guiTransform": {
+    "origin": { "x": 1, "y": 0.6, "z": 0.5 },
+    "scale": 1.9
+  },
+  "collisionSelectionBoxes": [
+    { "x1": 0.8566, "y1": 0.3942, "z1": 0.0156, "x2": 0.8939, "y2": 0.7639, "z2": 0.1402,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+    { "x1": 0.8566, "y1": 0.3942, "z1": 0.2157, "x2": 0.8939, "y2": 0.7639, "z2": 0.3443,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+    { "x1": 0.8566, "y1": 0.3942, "z1": 0.4158, "x2": 0.8939, "y2": 0.7639, "z2": 0.5484,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+    { "x1": 0.8566, "y1": 0.3942, "z1": 0.6159, "x2": 0.8939, "y2": 0.7639, "z2": 0.7525,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+    { "x1": 0.8566, "y1": 0.3942, "z1": 0.8160, "x2": 0.8939, "y2": 0.7639, "z2": 0.9566,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+
+    { "x1": 0.8566, "y1": 0.2319, "z1": 0.1275, "x2": 0.8939, "y2": 0.5953, "z2": 0.2498,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+    { "x1": 0.8566, "y1": 0.2319, "z1": 0.3291, "x2": 0.8939, "y2": 0.5953, "z2": 0.4562,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+    { "x1": 0.8566, "y1": 0.2319, "z1": 0.5307, "x2": 0.8939, "y2": 0.5953, "z2": 0.6626,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } },
+    { "x1": 0.8566, "y1": 0.2319, "z1": 0.7323, "x2": 0.8939, "y2": 0.5953, "z2": 0.8690,
+      "rotateYByType": { "*-north": 90, "*-east": 0, "*-west": 180, "*-south": -90 } }
+  ]
+}

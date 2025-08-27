@@ -5,14 +5,19 @@ using HarmonyLib;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Thievery.Config;
+using Thievery.KeyHook;
 using Thievery.LockAndKey;
 using Thievery.LockpickAndTensionWrench;
+using Thievery.StickyFingers;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Config;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Server;
+using Vintagestory.Client.NoObf;
+using Vintagestory.Common;
 using Vintagestory.GameContent;
 
 namespace Thievery
@@ -22,8 +27,8 @@ namespace Thievery
         private ICoreAPI api;
         public LockManager LockManager { get; private set; }
         private Harmony harmony;
-        private LockpickHudElement lockpickHudElement;
-        public LockpickHudElement LockpickHudElement => lockpickHudElement;
+        private ProgressHudElement progressHudElement;
+        public ProgressHudElement ProgressHudElement => progressHudElement;
         public IClientNetworkChannel clientChannel;
         private IServerNetworkChannel serverChannel;
         private ConfigLibCompatibility _configLibCompatibility;
@@ -46,6 +51,10 @@ namespace Thievery
         {
             this.api = Api;
             base.Start(Api);
+            Api.RegisterEntityBehaviorClass(
+                "pickpocket",
+                typeof(Thievery.StickyFingers.EntityBehaviorPickpocket)
+            );
             Api.RegisterItemClass("ItemKey", typeof(ItemKey));
             Api.RegisterItemClass("ItemLockpick", typeof(ItemLockpick));
             Api.RegisterItemClass("ItemTensionWrench", typeof(ItemTensionWrench));
@@ -53,6 +62,8 @@ namespace Thievery
             Api.RegisterBlockClass("BlockKeyMold", typeof(BlockKeyMold));
             Api.RegisterBlockEntityClass("BlockEntityKeyMold", typeof(BlockEntityKeyMold));
             Api.RegisterBlockEntityBehaviorClass("ThieveryLockData", typeof(BlockEntityThieveryLockData));
+            Api.RegisterBlockClass("BlockKeyHook", typeof(BlockKeyHook));
+            Api.RegisterBlockEntityClass("BlockEntityKeyHook", typeof(BlockEntityKeyHook));
         }
         public override void StartServerSide(ICoreServerAPI Api)
         {
@@ -109,10 +120,10 @@ namespace Thievery
         {
             base.StartClientSide(api);
             LockManager = new LockManager(api);
-            lockpickHudElement = new LockpickHudElement(api);
+            progressHudElement = new ProgressHudElement(api);
             _clientApi = api;
             if (api.ModLoader.IsModEnabled("configlib")) ConfigLibCompatibility.Init(api);
-            api.Event.RegisterRenderer(lockpickHudElement, EnumRenderStage.Ortho, "lockpickhud");
+            api.Event.RegisterRenderer(progressHudElement, EnumRenderStage.Ortho, "pickhud");
             clientChannel = api.Network.RegisterChannel("thievery")
                 .RegisterMessageType<PickProgressPacket>()
                 .RegisterMessageType<TransformMoldPacket>()
@@ -163,14 +174,61 @@ namespace Thievery
                     }
                 }
             }
+            EntityProperties playerEntity = Api.World.GetEntityType(new AssetLocation("game", "player"));
+            if (playerEntity == null)
+            {
+                Api.Logger.Warning("[Thievery] Could not find player entity properties during AssetsFinalize.");
+                return;
+            }
+
+            var thieveryBehavior = new List<JsonObject>(1)
+            {
+                new JsonObject(new Newtonsoft.Json.Linq.JObject { ["code"] = "pickpocket" })
+            };
+            static JsonObject[] Merge(JsonObject[] existing, List<JsonObject> add)
+            {
+                if (existing == null || existing.Length == 0)
+                {
+                    return add?.ToArray() ?? Array.Empty<JsonObject>();
+                }
+                if (add == null || add.Count == 0) return existing;
+
+                var merged = new List<JsonObject>(existing.Length + add.Count);
+                merged.AddRange(existing);
+                merged.AddRange(add);
+                return merged.ToArray();
+            }
+            if (playerEntity.Server != null)
+            {
+                playerEntity.Server.BehaviorsAsJsonObj =
+                    Merge(playerEntity.Server.BehaviorsAsJsonObj, thieveryBehavior);
+            }
+            else
+            {
+                Api.Logger.Debug("[Thievery] playerEntity.Server is null during AssetsFinalize (client-only context?).");
+            }
+            if (playerEntity.Client != null)
+            {
+                playerEntity.Client.BehaviorsAsJsonObj =
+                    Merge(playerEntity.Client.BehaviorsAsJsonObj, thieveryBehavior);
+            }
+            else
+            {
+                Api.Logger.Debug("[Thievery] playerEntity.Client is null during AssetsFinalize (server-only context?).");
+            }
         }
 
         private void OnPickProgressReceived(PickProgressPacket packet)
         {
-            if (lockpickHudElement == null) return;
-
-            lockpickHudElement.CircleProgress = packet.Progress;
-            lockpickHudElement.CircleVisible = packet.IsPicking;
+            if (progressHudElement == null) return;
+            if (!packet.IsPicking && packet.Progress >= 0.999f)
+            {
+                progressHudElement.CircleVisible = true;
+                progressHudElement.CircleProgress = 1f;
+                return;
+            }
+            progressHudElement.CircleVisible = packet.IsPicking;
+            progressHudElement.CircleProgress = packet.Progress;
         }
 
         public override void Dispose()
@@ -331,10 +389,10 @@ namespace Thievery
                 lockpickItem.StopPickingForPlayer(player);
             }
 
-            if (LockpickHudElement != null)
+            if (ProgressHudElement != null)
             {
-                LockpickHudElement.CircleVisible = false;
-                LockpickHudElement.CircleProgress = 0f;
+                ProgressHudElement.CircleVisible = false;
+                ProgressHudElement.CircleProgress = 0f;
             }
         }
 
