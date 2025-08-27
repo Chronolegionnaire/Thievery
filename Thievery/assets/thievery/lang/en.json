@@ -142,6 +142,13 @@
     "thievery:Config.Setting.OwnerExempt": "Allow owners to bypass locks, allowing them to interact with blocks even if they are locked.",
     "thievery:Config.Setting.BlockLockpickOnLandClaims": "Block lockpicking on claimed land.",
 
+    "thievery:Config.Setting.Pickpocketing.Enabled": "Enable Pickpocketing",
+    "thievery:Config.Setting.Pickpocketing.StealFullStack": "Steal full stack instead of single item",
+    "thievery:Config.Setting.Pickpocketing.RequiredTraits": "Required traits (one per line)",
+    "thievery:Config.Setting.Pickpocketing.BaseSuccess": "Base success chance",
+    "thievery:Config.Setting.Pickpocketing.AlertChance": "Alert chance",
+    "thievery:Config.Setting.Pickpocketing.Seconds": "Time to pickpocket (seconds)",
+
     "thievery:Config.Setting.LockpickingMinigame": "Enable the lockpicking minigame.",
     "thievery:Config.Setting.Mini.LockpickDamageBase": "Base durability loss per click for lockpicks in the minigame. (multiplied by lock difficulty)",
     "thievery:Config.Setting.Mini.TensionWrenchDamageBase": "Base durability loss per second for tension wrenches in the minigame. (multiplied by lock difficulty)",

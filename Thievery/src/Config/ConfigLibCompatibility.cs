@@ -27,6 +27,15 @@ namespace Thievery.Config
         private const string settingLockToolDamage                     = "thievery:Config.Setting.LockToolDamage";
         private const string settingOwnerExempt                        = "thievery:Config.Setting.OwnerExempt";
         private const string settingBlockLockpickOnLandClaims          = "thievery:Config.Setting.BlockLockpickOnLandClaims";
+        
+        // Pickpocketing – Main
+        private const string settingPickpocketingEnabled        = "thievery:Config.Setting.Pickpocketing.Enabled";
+        private const string settingPickpocketStealFullStack    = "thievery:Config.Setting.Pickpocketing.StealFullStack";
+        private const string settingPickpocketRequiredTraits    = "thievery:Config.Setting.Pickpocketing.RequiredTraits";
+        private const string settingPickpocketBaseSuccess       = "thievery:Config.Setting.Pickpocketing.BaseSuccess";
+        private const string settingPickpocketAlertChance       = "thievery:Config.Setting.Pickpocketing.AlertChance";
+        private const string settingPickpocketSeconds           = "thievery:Config.Setting.Pickpocketing.Seconds";
+
 
         // LockpickingMiniGame
         private const string settingLockpickingMinigame                = "thievery:Config.Setting.LockpickingMinigame";
@@ -156,6 +165,7 @@ namespace Thievery.Config
         private static void Edit(ModConfig config, string id)
         {
             var main   = config.Main;
+            var pick   = config.Pickpocket ??= new PickpocketingMainConfig();
             var diff   = config.Difficulty;
             var mini   = config.MiniGame;
             var world  = config.WorldGen;
@@ -223,6 +233,63 @@ namespace Thievery.Config
             bool blockLockpickOnLandClaims = main.BlockLockpickOnLandClaims;
             ImGui.Checkbox(Lang.Get(settingBlockLockpickOnLandClaims) + $"##blockLockpickOnLandClaims-{id}", ref blockLockpickOnLandClaims);
             main.BlockLockpickOnLandClaims = blockLockpickOnLandClaims;
+            
+            // ──────────────────────────────────────────────────────────────────
+            // Pickpocketing – Main
+            // ──────────────────────────────────────────────────────────────────
+            ImGui.SeparatorText("Pickpocketing – Main");
+
+            // Master toggle
+            bool pickEnabled = pick.PickPocketing;
+            ImGui.Checkbox(Lang.Get(settingPickpocketingEnabled) + $"##pickpocketingEnabled-{id}", ref pickEnabled);
+            pick.PickPocketing = pickEnabled;
+
+            // Steal full stack
+            bool stealFull = pick.stealFullStack;
+            ImGui.Checkbox(Lang.Get(settingPickpocketStealFullStack) + $"##stealFullStack-{id}", ref stealFull);
+            pick.stealFullStack = stealFull;
+
+            // Required traits (multiline; one per line)
+            string pickTraits = (pick.RequiredTraits != null && pick.RequiredTraits.Count > 0)
+                ? string.Join("\n", pick.RequiredTraits)
+                : string.Empty;
+
+            var pickTraitsBuilder = new StringBuilder(pickTraits, Math.Max(1024, pickTraits.Length + 256));
+            string pickTraitsBuf = pickTraitsBuilder.ToString();
+            ImGui.InputTextMultiline(
+                Lang.Get(settingPickpocketRequiredTraits) + $"##pickpocketRequiredTraits-{id}",
+                ref pickTraitsBuf,
+                64 * 1024,
+                new System.Numerics.Vector2(-1, 200)
+            );
+
+            pick.RequiredTraits = pickTraitsBuf
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim())
+                .Where(s => !string.IsNullOrWhiteSpace(s))
+                .Distinct()
+                .ToList();
+
+            // Base success chance (0..1)
+            double baseSucc = pick.baseSuccessChance;
+            float baseSuccF = (float)baseSucc;
+            ImGui.DragFloat(Lang.Get(settingPickpocketBaseSuccess) + $"##pickpocketBaseSuccess-{id}",
+                ref baseSuccF, 0.01f, 0.0f, 1.0f);
+            pick.baseSuccessChance = Math.Clamp(baseSuccF, 0f, 1f);
+
+            // Alert chance (0..1)
+            double alert = pick.alertChance;
+            float alertF = (float)alert;
+            ImGui.DragFloat(Lang.Get(settingPickpocketAlertChance) + $"##pickpocketAlertChance-{id}",
+                ref alertF, 0.01f, 0.0f, 1.0f);
+            pick.alertChance = Math.Clamp(alertF, 0f, 1f);
+
+            // Time to pickpocket (0.1..30 sec)
+            double secs = pick.PickpocketSeconds;
+            float secsF = (float)secs;
+            ImGui.DragFloat(Lang.Get(settingPickpocketSeconds) + $"##pickpocketSeconds-{id}",
+                ref secsF, 0.1f, 0.1f, 30.0f);
+            pick.PickpocketSeconds = Math.Clamp(secsF, 0.1f, 30.0f);
 
             // ──────────────────────────────────────────────────────────────────
             // Lockpicking – Minigame
