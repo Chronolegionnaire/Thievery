@@ -7,6 +7,7 @@ using Newtonsoft.Json.Linq;
 using Thievery.Config;
 using Thievery.KeyHook;
 using Thievery.LockAndKey;
+using Thievery.LockAndKey.BreachingCharge;
 using Thievery.LockpickAndTensionWrench;
 using Thievery.StickyFingers;
 using Vintagestory.API.Client;
@@ -64,6 +65,8 @@ namespace Thievery
             Api.RegisterBlockEntityBehaviorClass("ThieveryLockData", typeof(BlockEntityThieveryLockData));
             Api.RegisterBlockClass("BlockKeyHook", typeof(BlockKeyHook));
             Api.RegisterBlockEntityClass("BlockEntityKeyHook", typeof(BlockEntityKeyHook));
+            Api.RegisterBlockClass("BlockBreachingCharge", typeof(BlockBreachingCharge));
+            Api.RegisterBlockEntityClass("BlockEntityBreachingCharge", typeof(BlockEntityBreachingCharge));
         }
         public override void StartServerSide(ICoreServerAPI Api)
         {

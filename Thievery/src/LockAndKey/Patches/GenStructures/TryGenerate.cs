@@ -62,7 +62,7 @@ namespace Thievery.Patches
             if (!__result || __instance.LastPlacedSchematicLocation == null) return;
 
             string gen = __instance.Code.ToString();
-            string schem = __instance.LastPlacedSchematic.FromFileName;
+            string schem = __instance.LastPlacedSchematic.FromFile?.ToShortString() ?? "";
             string key = $"{gen}:{schem}";
 
             bool isBlacklisted = ModConfig.Instance.Blacklist.StructureBlacklist
