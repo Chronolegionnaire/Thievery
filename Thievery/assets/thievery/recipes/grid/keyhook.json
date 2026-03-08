@@ -1,0 +1,10 @@
+﻿{
+  "ingredientPattern": "SS,WS,SS",
+  "ingredients": {
+    "W": { "type": "item", "code": "game:plank-*", "name": "wood" },
+    "S": { "type": "item", "code": "game:stick", "name": "wood" }
+  },
+  "width": 2,
+  "height": 3,
+  "output": { "type": "block", "code": "thievery:Keyhook-{wood}-east"  }
+}

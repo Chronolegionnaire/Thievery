@@ -1,0 +1,10 @@
+﻿{
+  "ingredientPattern": "C	K",
+  "ingredients": {
+    "C": { "type": "item", "code": "game:chisel-*", "isTool": true},
+    "K": { "type": "item", "code": "thievery:key-*", "name": "metal", "allowedVariants": ["aged"]  }
+  },
+  "width": 1,
+  "height": 2,
+  "output": { "type": "item", "code": "game:metalbit-molybdochalkos", "quantity": "20"  }
+}

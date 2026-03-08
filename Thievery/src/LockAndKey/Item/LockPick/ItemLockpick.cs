@@ -458,7 +458,7 @@ namespace Thievery.LockpickAndTensionWrench
             if (api.Side == EnumAppSide.Client)
             {
                 var clientApi = api as ICoreClientAPI;
-                var hudElement = clientApi?.ModLoader?.GetModSystem<ThieveryModSystem>()?.LockpickHudElement;
+                var hudElement = clientApi?.ModLoader?.GetModSystem<ThieveryModSystem>()?.ProgressHudElement;
                 if (hudElement != null)
                 {
                     hudElement.CircleProgress = progress;
@@ -565,10 +565,10 @@ namespace Thievery.LockpickAndTensionWrench
 
                 var clientApi = api as ICoreClientAPI;
                 var modSystem = clientApi?.ModLoader?.GetModSystem<ThieveryModSystem>();
-                if (modSystem != null && modSystem.LockpickHudElement != null)
+                if (modSystem != null && modSystem.ProgressHudElement != null)
                 {
-                    modSystem.LockpickHudElement.CircleVisible = false;
-                    modSystem.LockpickHudElement.CircleProgress = 0f;
+                    modSystem.ProgressHudElement.CircleVisible = false;
+                    modSystem.ProgressHudElement.CircleProgress = 0f;
                 }
             }
         }

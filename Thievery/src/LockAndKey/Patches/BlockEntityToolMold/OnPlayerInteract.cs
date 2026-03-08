@@ -47,9 +47,7 @@ public class Patch_BlockEntityToolMold_OnPlayerInteract
             __instance.Api.World.BlockAccessor.SetBlock(0, __instance.Pos);
             if (__instance.Block.Sounds?.Place != null)
             {
-                __instance.Api.World.PlaySoundAt(__instance.Block.Sounds.Place, __instance.Pos, -0.5, byPlayer, false);
-            }
-
+                __instance.Api.World.PlaySoundAt(__instance.Block.Sounds.Place, __instance.Pos, -0.5, byPlayer, 1f);            }
             flag = true;
         }
 

@@ -17,6 +17,11 @@ public class ModConfig
     /// Main mod config
     /// </summary>
     public LockpickingMainConfig Main { get; set; } = new();
+    
+    /// <summary>
+    /// Pickpocket config
+    /// </summary>
+    public PickpocketingMainConfig Pickpocket { get; set; } = new();
 
     /// <summary>
     /// Lock difficulty assignment

@@ -4,62 +4,125 @@ using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
 using Newtonsoft.Json;
 
-namespace Thievery.Config.SubConfigs;
-
-public class LockpickingMainConfig
+namespace Thievery.Config.SubConfigs
+{
+    public class LockpickingMainConfig
     {
-        /// <summary>Master toggle for the lockpicking feature.</summary>
+        /// <summary>
+        /// Master toggle for the lockpicking feature.
+        /// </summary>
         [Category("Main")]
         [DefaultValue(true)]
         public bool LockPicking { get; set; } = true;
 
-        /// <summary>Chance (0–1) that a lockpick takes durability damage on use.</summary>
+        /// <summary>
+        /// Chance (0–1) that a lockpick takes durability damage on use.
+        /// </summary>
         [Category("Main")]
         [DisplayFormat(DataFormatString = "P")]
         [Range(0d, 1d)]
         [DefaultValue(0.10d)]
         public double LockPickDamageChance { get; set; } = 0.10d;
 
-        /// <summary>Damage applied to a lockpick when damage is rolled.</summary>
+        /// <summary>
+        /// Damage applied to a lockpick when damage is rolled.
+        /// </summary>
         [Category("Main")]
         [Range(0d, double.PositiveInfinity)]
         [DefaultValue(200d)]
         public float LockPickDamage { get; set; } = 200f;
 
-        /// <summary>List of traits that grant the ability to pick locks.</summary>
+        /// <summary>
+        /// List of traits that grant the ability to pick locks.
+        /// </summary>
         [Category("Requirements")]
         [JsonProperty(ObjectCreationHandling = ObjectCreationHandling.Replace)]
-        public List<string> RequiredTraits  { get; set; } = new()
+        public List<string> RequiredTraits { get; set; } = new()
         {
             "pilferer",
             "tinkerer"
         };
 
-        /// <summary>Chance (0–1) an aged key is damaged on use.</summary>
+        /// <summary>
+        /// Chance (0–1) an aged key is damaged on use.
+        /// </summary>
         [Category("Aged Key")]
         [DisplayFormat(DataFormatString = "P")]
         [Range(0d, 1d)]
         [DefaultValue(0.75d)]
         public double AgedKeyDamageChance { get; set; } = 0.75d;
 
-        /// <summary>Durability damage to an aged key when damage is rolled.</summary>
+        /// <summary>
+        /// Durability damage to an aged key when damage is rolled.
+        /// </summary>
         [Category("Aged Key")]
         [Range(0, int.MaxValue)]
         [DefaultValue(20)]
         public int AgedKeyDamage { get; set; } = 20;
 
-        /// <summary>Durability damage applied to lock tools on use.</summary>
+        /// <summary>
+        /// Durability damage applied to lock tools on use.
+        /// </summary>
         [Category("Tools")]
         [Range(0, int.MaxValue)]
         [DefaultValue(50)]
         public int LockToolDamage { get; set; } = 50;
 
-        /// <summary>If true, owners are exempt from having to unlock blocks to use them.</summary>
+        /// <summary>
+        /// If true, owners are exempt from having to unlock blocks to use them.
+        /// </summary>
         [Category("Permissions")]
         [DefaultValue(false)]
         public bool OwnerExempt { get; set; } = false;
-        
+
         [Category("Permissions")]
         [DefaultValue(false)]
         public bool BlockLockpickOnLandClaims { get; set; } = false;
+
+        /// <summary>
+        /// If true, explosions can damage reinforced blocks. If false, explosions only affect world gen reinforced blocks.
+        /// </summary>
+        [Category("Explosion")]
+        [DefaultValue(false)]
+        public bool ExplosionsAffectPlayerReinforcement { get; set; } = false;
+
+        /// <summary>
+        /// Range of reinforcement damage (inclusive) caused by explosions.
+        /// </summary>
+        [Category("Explosion")]
+        [DefaultValue(typeof(FloatRange), "1, 3")]
+        public FloatRange ExplosionReinforcementDamage { get; set; } = new FloatRange()
+        {
+            Min = 50f,
+            Max = 150f
+        };
+        
+        /// <summary>
+        /// Chance (0–1) an aged key is damaged on use.
+        /// </summary>
+        [Category("Explosion")]
+        [DisplayFormat(DataFormatString = "P")]
+        [Range(0d, 1d)]
+        [DefaultValue(0.2d)]
+        public double ExplosionDamageContainerContentsChance { get; set; } = 0.2d;
     }
+
+    /// <summary>
+    /// Represents a range of floating-point values.
+    /// </summary>
+    public class FloatRange
+    {
+        public float Min { get; set; }
+        public float Max { get; set; }
+
+        public float NextFloat(Random rand)
+        {
+            return (float)(Min + rand.NextDouble() * (Max - Min));
+        }
+
+        public override string ToString()
+        {
+            return $"{Min} - {Max}";
+        }
+    }
+}

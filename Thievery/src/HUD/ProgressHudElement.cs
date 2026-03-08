@@ -4,7 +4,7 @@ using Vintagestory.API.MathTools;
 
 namespace Thievery.LockpickAndTensionWrench
 {
-    public class LockpickHudElement : IRenderer, IDisposable
+    public class ProgressHudElement : IRenderer, IDisposable
     {
         private const float CircleAlphaIn = 0.8F;
         private const float CircleAlphaOut = 0.8F;
@@ -12,8 +12,8 @@ namespace Thievery.LockpickAndTensionWrench
         private const float OuterRadius = 24f;
         private const float InnerRadius = 18f;
 
-        private const float DrainSpeed = 2f; // Speed at which progress drains to 0
-        private const float NoProgressTimeout = 1f; // Time in seconds before draining starts
+        private const float DrainSpeed = 2f;
+        private const float NoProgressTimeout = 1f;
 
         private MeshRef circleMesh = null;
         private ICoreClientAPI api;
@@ -21,7 +21,7 @@ namespace Thievery.LockpickAndTensionWrench
         private float circleProgress = 0.0F;
         private float targetCircleProgress = 0.0F;
 
-        private float timeSinceLastProgressUpdate = 0.0F; // Tracks how long since progress was last updated
+        private float timeSinceLastProgressUpdate = 0.0F;
         private bool isDraining = false;
 
         public bool CircleVisible { get; set; }
@@ -31,70 +31,66 @@ namespace Thievery.LockpickAndTensionWrench
             get => targetCircleProgress;
             set
             {
-                targetCircleProgress = GameMath.Clamp(value, 0.0F, 1.0F);
+                targetCircleProgress = GameMath.Clamp(value, 0f, 1f);
 
-                if (targetCircleProgress > 0.0F)
+                if (targetCircleProgress > 0f && CircleVisible)
                 {
-                    CircleVisible = true;
                     isDraining = false;
-                    timeSinceLastProgressUpdate = 0.0F; // Reset timeout when progress updates
+                    timeSinceLastProgressUpdate = 0f;
                 }
-                else
+
+                if (targetCircleProgress <= 0f)
                 {
                     CircleVisible = false;
                 }
             }
         }
 
-        public LockpickHudElement(ICoreClientAPI api)
+
+        public ProgressHudElement(ICoreClientAPI api)
         {
             this.api = api;
-            api.Event.RegisterRenderer(this, EnumRenderStage.Ortho, "lockpickoverlay");
+            api.Event.RegisterRenderer(this, EnumRenderStage.Ortho, "pickoverlay");
             UpdateCircleMesh(1);
         }
 
         private void UpdateCircleMesh(float progress)
         {
             const float ringSize = InnerRadius / OuterRadius;
-            const float stepSize = 1.0F / CircleMaxSteps;
+            progress = GameMath.Clamp(progress, 0f, 1f);
 
-            int steps = Math.Max(1, 1 + (int)Math.Ceiling(Math.Min(CircleMaxSteps * progress, int.MaxValue / CircleMaxSteps)));
+            int steps = Math.Max(2, (int)Math.Ceiling(CircleMaxSteps * Math.Max(progress, 0.001f))) + 1;
 
-            int vertexCapacity = steps * 2;
-            int indexCapacity = steps * 6;
-
-            var data = new MeshData(vertexCapacity, indexCapacity, withUv: true, withRgba: false, withFlags: false);
+            var data = new MeshData(steps * 2, steps * 6, withUv: true, withRgba: false, withFlags: false);
 
             for (int i = 0; i < steps; i++)
             {
-                var p = Math.Min(progress, i * stepSize) * Math.PI * 2;
-                var x = (float)Math.Sin(p);
-                var y = -(float)Math.Cos(p);
+                float t = (i / (float)(steps - 1)) * progress * GameMath.TWOPI;
+                float x = GameMath.Sin(t);
+                float y = -GameMath.Cos(t);
 
                 data.AddVertex(x, y, 0, 0, 0);
                 data.AddVertex(x * ringSize, y * ringSize, 0, 0, 0);
 
                 if (i > 0)
                 {
-                    data.AddIndices(new[] { (i * 2) - 2, (i * 2) - 1, (i * 2) });
-                    data.AddIndices(new[] { (i * 2), (i * 2) - 1, (i * 2) + 1 });
+                    int o = i * 2;
+                    int a = o - 2, b = o - 1, c = o, d = o + 1;
+
+                    data.AddIndices(a, b, c,  c, b, d);
                 }
             }
 
-            if (progress == 1.0f)
+            if (progress >= 0.999f)
             {
-                data.AddIndices(new[] { (steps * 2) - 2, (steps * 2) - 1, 0 });
-                data.AddIndices(new[] { 0, (steps * 2) - 1, 1 });
+                int o = steps * 2;
+                int a = o - 2, b = o - 1, c = 0, d = 1;
+
+                data.AddIndices(a, b, c,  c, b, d);
             }
 
-            if (circleMesh != null)
-            {
-                api.Render.UpdateMesh(circleMesh, data);
-            }
-            else
-            {
-                circleMesh = api.Render.UploadMesh(data);
-            }
+            if (circleMesh != null) api.Render.UpdateMesh(circleMesh, data);
+            else circleMesh = api.Render.UploadMesh(data);
         }
 
         public void OnRenderFrame(float deltaTime, EnumRenderStage stage)
@@ -105,30 +101,27 @@ namespace Thievery.LockpickAndTensionWrench
 
                 float smoothingSpeed = 5f;
 
-                // If we're not draining, smoothly update progress
                 if (!isDraining)
                 {
-                    circleProgress = GameMath.Lerp(circleProgress, targetCircleProgress, deltaTime * smoothingSpeed);
-
-                    if (Math.Abs(circleProgress - targetCircleProgress) < 0.01f)
+                    if (targetCircleProgress >= 0.999f)
                     {
-                        circleProgress = targetCircleProgress;
+                        circleProgress = 1f;
+                    }
+                    else
+                    {
+                        circleProgress = GameMath.Lerp(circleProgress, targetCircleProgress, deltaTime * smoothingSpeed);
+                        if (Math.Abs(circleProgress - targetCircleProgress) < 0.01f) circleProgress = targetCircleProgress;
                     }
 
-                    // Start draining if no progress update for timeout duration
                     timeSinceLastProgressUpdate += deltaTime;
-                    if (timeSinceLastProgressUpdate >= NoProgressTimeout)
-                    {
-                        isDraining = true;
-                    }
+                    if (timeSinceLastProgressUpdate >= NoProgressTimeout) isDraining = true;
                 }
                 else
                 {
-                    // Drain progress to 0
                     circleProgress = Math.Max(0.0F, circleProgress - (deltaTime * DrainSpeed));
                     if (circleProgress <= 0.0F)
                     {
-                        CircleVisible = false; // Hide the element when progress is fully drained
+                        CircleVisible = false;
                         targetCircleProgress = 0.0F;
                         isDraining = false;
                     }

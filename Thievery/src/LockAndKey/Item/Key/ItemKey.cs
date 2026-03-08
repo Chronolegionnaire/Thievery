@@ -11,14 +11,11 @@ namespace Thievery.LockAndKey
 {
     public class ItemKey : Item
     {
-        public override string GetHeldItemName(ItemStack itemStack)
+        public override string GetHeldItemName(ItemStack stack)
         {
-            string customName = itemStack.Attributes.GetString("keyName", null);
-            if (!string.IsNullOrEmpty(customName))
-            {
-                return customName;
-            }
-            return Lang.Get("thievery:key");
+            string customName = stack.Attributes.GetString("keyName", null);
+            if (!string.IsNullOrEmpty(customName)) return customName;
+            return base.GetHeldItemName(stack);
         }
 
         public override void OnHeldInteractStart(

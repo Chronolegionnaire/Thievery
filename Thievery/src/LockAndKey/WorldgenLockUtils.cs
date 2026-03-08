@@ -34,7 +34,7 @@ namespace Thievery.LockAndKey
 
             if (reinfs.TryGetValue(localIndex, out var bre))
             {
-                if (bre != null && bre.Locked && bre.LastPlayername == WorldgenReinfUID)
+                if (bre != null && bre.Locked && bre.PlayerUID == WorldgenReinfUID)
                     return true;
                 // Debug Loot
                 /*else if (bre != null && bre.Locked && bre.LastPlayername == "Chronolegionaire")
