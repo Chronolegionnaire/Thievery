@@ -18,8 +18,6 @@ namespace Thievery.LockAndKey.BreachingCharge
         private string ignitedByPlayerUid;
         private ILoadedSound fuseSound;
         public bool CascadeLit { get; private set; }
-
-        // Derived from JSON attributes
         private float scanRadius;
         private (int min, int max) reinforcementDamageRoll;
         private bool unlockLocks;
@@ -32,8 +30,6 @@ namespace Thievery.LockAndKey.BreachingCharge
         public override void Initialize(ICoreAPI api)
         {
             base.Initialize(api);
-
-            // Read attributes from block JSON (with sane defaults)
             var at = Block?.Attributes;
             scanRadius = at?["blastRadiusByType"].AsInt(3) ?? at?["blastRadius"].AsInt(3) ?? 3;
             reinforcementDamageRoll = ParseRange(at?["reinforcementDamageRollByType"].AsString("1-3"));
@@ -41,8 +37,6 @@ namespace Thievery.LockAndKey.BreachingCharge
             containerDamageChance = (float)(at?["containerDamageChance"].AsDouble(0.15) ?? 0.15);
             requireClaimPermission = at?["requireClaimPermission"].AsBool(true) ?? true;
             knockbackStrength = (float)(at?["knockbackStrength"].AsDouble(1.0) ?? 1.0);
-
-            // Ticker
             RegisterGameTickListener(OnTick, 50);
 
             if (api.Side == EnumAppSide.Client)
@@ -69,7 +63,7 @@ namespace Thievery.LockAndKey.BreachingCharge
             if (Api.Side == EnumAppSide.Client) fuseSound?.Start();
 
             lit = true;
-            RemainingSeconds = 4f; // or make configurable
+            RemainingSeconds = 4f;
             ignitedByPlayerUid = byPlayer?.PlayerUID;
             MarkDirty(false);
         }
@@ -87,7 +81,6 @@ namespace Thievery.LockAndKey.BreachingCharge
 
             if (Api.Side == EnumAppSide.Client)
             {
-                // Little sparks like vanilla
                 BlockEntityBomb.smallSparks.MinPos.Set(Pos.X + 0.45, Pos.Y + 0.53, Pos.Z + 0.45);
                 Api.World.SpawnParticles(BlockEntityBomb.smallSparks, null);
             }
@@ -95,7 +88,6 @@ namespace Thievery.LockAndKey.BreachingCharge
 
         private void Combust()
         {
-            // Permission check near claims (optional, matches vanilla bomb semantics)
             if (requireClaimPermission && !HasPermissionToUse())
             {
                 Api.World.PlaySoundAt(new AssetLocation("game:sounds/effect/extinguish*"), Pos, -0.5);
@@ -103,17 +95,9 @@ namespace Thievery.LockAndKey.BreachingCharge
                 MarkDirty(true);
                 return;
             }
-
-            // Remove the placed block itself
             Api.World.BlockAccessor.SetBlock(0, Pos);
-
-            // Apply “directed” effects (no terrain damage)
             BreachArea();
-
-            // Light SFX
             Api.World.PlaySoundAt(new AssetLocation("game:sounds/effect/smallexplosion"), Pos, -0.5);
-
-            // Optional: small knockback for entities in radius
             if (knockbackStrength > 0f)
             {
                 var center = Pos.ToVec3d().Add(0.5, 0.5, 0.5);
@@ -121,8 +105,6 @@ namespace Thievery.LockAndKey.BreachingCharge
 
                 foreach (var ent in ents)
                 {
-                    // if (ent is EntityItem) continue; // optional
-
                     var dir = ent.ServerPos.XYZ - center;
                     double len = dir.Length();
                     if (len < 0.0001) continue;
@@ -161,8 +143,6 @@ namespace Thievery.LockAndKey.BreachingCharge
 
             int r = (int)Math.Ceiling(scanRadius);
             var center = Pos;
-
-            // Iterate a sphere-ish volume
             for (int dx = -r; dx <= r; dx++)
             {
                 for (int dy = -r; dy <= r; dy++)
@@ -173,27 +153,22 @@ namespace Thievery.LockAndKey.BreachingCharge
                         if (center.DistanceTo(p) > scanRadius) continue;
 
                         var bre = modSys.GetReinforcment(p);
-                        if (bre == null) continue; // Not reinforced; skip unless you want to also try locks on non-reinforced
+                        if (bre == null) continue;
 
-                        // Decide if this charge is allowed to touch this reinforcement
                         bool allow = ModConfig.Instance.Main.ExplosionsAffectPlayerReinforcement
-                                     || bre.PlayerUID == "010100110100111101010011"; // same as your patch
+                                     || bre.PlayerUID == "010100110100111101010011";
 
                         int damage = 0;
                         if (allow)
                         {
                             damage = RollDamage(Api.World.Rand, reinforcementDamageRoll.min, reinforcementDamageRoll.max);
                         }
-
-                        // Consume reinforcement strength
                         if (damage > 0)
                         {
                             modSys.ConsumeStrength(p, damage);
                         }
 
                         if (!allow) continue;
-
-                        // Optionally unlock/remove Thievery locks on the BE
                         var be = world.BlockAccessor.GetBlockEntity(p);
                         if (be != null)
                         {

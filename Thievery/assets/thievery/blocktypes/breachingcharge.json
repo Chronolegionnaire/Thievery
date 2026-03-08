@@ -1,4 +1,5 @@
 {
+  "enbled": false,
   "code": "breachingcharge",
   "class": "BlockBreachingCharge",
   "entityClass": "BlockEntityBreachingCharge",
