@@ -86,8 +86,13 @@ namespace Thievery
                 .RegisterMessageType<EndLockpickSessionPacket>()
                 .RegisterMessageType<LockPickLockoutPacket>()
                 .RegisterMessageType<WorldgenPickRewardPacket>()
+                .RegisterMessageType<BindKeyToLockPacket>()
+                .RegisterMessageType<OpenKeyNamingDialogPacket>()
+                .RegisterMessageType<UseKeyOnLockPacket>()
                 .SetMessageHandler<TransformMoldPacket>(OnTransformMoldRequest)
                 .SetMessageHandler<SyncKeyAttributesPacket>(OnSyncKeyAttributesPacket)
+                .SetMessageHandler<BindKeyToLockPacket>(OnBindKeyToLockPacket)
+                .SetMessageHandler<UseKeyOnLockPacket>(OnUseKeyOnLockPacket)
                 .SetMessageHandler<KeyNameUpdatePacket>((player, packet) =>
                 {
                     var slot = player.InventoryManager.ActiveHotbarSlot;
@@ -139,8 +144,12 @@ namespace Thievery
                 .RegisterMessageType<EndLockpickSessionPacket>()
                 .RegisterMessageType<LockPickLockoutPacket>()
                 .RegisterMessageType<WorldgenPickRewardPacket>()
+                .RegisterMessageType<BindKeyToLockPacket>()
+                .RegisterMessageType<OpenKeyNamingDialogPacket>()
+                .RegisterMessageType<UseKeyOnLockPacket>()
                 .SetMessageHandler<PickProgressPacket>(OnPickProgressReceived)
-                .SetMessageHandler<ItemDestroyedPacket>(OnItemDestroyedReceived);
+                .SetMessageHandler<ItemDestroyedPacket>(OnItemDestroyedReceived)
+                .SetMessageHandler<OpenKeyNamingDialogPacket>(OnOpenKeyNamingDialogPacket);
         }
 
         public override void AssetsFinalize(ICoreAPI Api)
@@ -641,6 +650,90 @@ namespace Thievery
 
                 return 50;
             }
+        }
+        private void OnBindKeyToLockPacket(IServerPlayer player, BindKeyToLockPacket packet)
+        {
+            try
+            {
+                if (player?.Entity?.World?.Api == null || packet?.BlockPos == null) return;
+
+                var api = player.Entity.World.Api;
+                var lockManager = LockManager;
+                if (lockManager == null) return;
+
+                var slot = player.InventoryManager.ActiveHotbarSlot;
+                if (slot?.Itemstack?.Collectible == null) return;
+                if (!(slot.Itemstack.Collectible is ItemKey)) return;
+
+                string existingKeyUid = slot.Itemstack.Attributes.GetString("keyUID", "");
+                if (!string.IsNullOrEmpty(existingKeyUid)) return;
+
+                var lockData = lockManager.GetLockData(packet.BlockPos);
+                if (lockData == null || string.IsNullOrEmpty(lockData.LockUid)) return;
+
+                if (!lockManager.IsPlayerAuthorized(packet.BlockPos, player))
+                {
+                    return;
+                }
+
+                slot.Itemstack.Attributes.SetString("keyUID", lockData.LockUid);
+
+                if (string.IsNullOrWhiteSpace(slot.Itemstack.Attributes.GetString("keyName")))
+                {
+                    slot.Itemstack.Attributes.SetString("keyName", Lang.Get("thievery:key"));
+                }
+
+                slot.MarkDirty();
+
+                serverChannel.SendPacket(new OpenKeyNamingDialogPacket
+                {
+                    KeyUid = lockData.LockUid
+                }, player);
+            }
+            catch (Exception e)
+            {
+                api?.Logger?.Error("[Thievery] OnBindKeyToLockPacket failed: {0}", e);
+            }
+        }
+        private void OnOpenKeyNamingDialogPacket(OpenKeyNamingDialogPacket packet)
+        {
+            if (_clientApi == null) return;
+
+            var player = _clientApi.World?.Player;
+            var slot = player?.InventoryManager?.ActiveHotbarSlot;
+            if (slot?.Itemstack?.Collectible is not ItemKey itemKey) return;
+            var dialog = new KeyNamingDialog(slot, _clientApi);
+            dialog.TryOpen();
+            _clientApi.Gui.RequestFocus(dialog);
+        }
+        private void OnUseKeyOnLockPacket(IServerPlayer player, UseKeyOnLockPacket packet)
+        {
+            if (player?.Entity?.World?.Api == null || packet?.BlockPos == null) return;
+
+            var slot = player.InventoryManager.ActiveHotbarSlot;
+            if (slot?.Itemstack?.Collectible is not ItemKey) return;
+
+            string heldKeyUid = slot.Itemstack.Attributes.GetString("keyUID", "");
+            if (string.IsNullOrEmpty(heldKeyUid) || heldKeyUid != packet.KeyUid) return;
+
+            var lockData = LockManager.GetLockData(packet.BlockPos);
+            if (lockData == null || string.IsNullOrEmpty(lockData.LockUid)) return;
+            if (heldKeyUid != lockData.LockUid) return;
+
+            LockManager.ToggleLock(packet.BlockPos);
+
+            var be = api.World.BlockAccessor.GetBlockEntity(packet.BlockPos);
+            var thiev = be?.GetBehavior<BlockEntityThieveryLockData>();
+            if (thiev != null)
+            {
+                thiev.ClearAllLockouts();
+                be.MarkDirty(true);
+            }
+
+            _serverApi.World.PlaySoundAt(
+                new AssetLocation("thievery:sounds/lock"),
+                packet.BlockPos, 0, null, true, 32f, 1f
+            );
         }
     }
 }

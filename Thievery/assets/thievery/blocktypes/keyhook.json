@@ -6,11 +6,13 @@
     { "name": "HorizontalAttachable", "properties": { "dropBlockFace": "east" } }
   ],
   "variantgroups": [
-    { "code": "wood", "states": ["aged", "agedebony", "rottenebony"], "loadFromProperties": "game:block/wood" },
+    { "code": "wood", "states": ["aged", "agedebony", "rottenebony", "veryaged"], "loadFromProperties": "game:block/wood" },
     { "code": "side", "loadFromProperties": "abstract/horizontalorientation" }
   ],
   "texturesByType": {
     "*-agedebony-*": {"wood": { "base": "game:block/wood/planks/aged/ebony1" }},
+    "*-aged-*": {"wood": { "base": "game:block/wood/planks/aged/aged1" }},
+    "*-veryaged-*": {"wood": { "base": "game:block/wood/planks/aged/veryaged1" }},
     "*": {"wood": { "base": "game:block/wood/planks/{wood}1" }}},
   "shapeByType": {
     "*-north": { "base": "thievery:keyhook", "rotateY": 0 },

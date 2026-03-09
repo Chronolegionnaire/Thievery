@@ -65,119 +65,73 @@ namespace Thievery.LockAndKey
             BlockSelection blockSel,
             ref EnumHandHandling handling)
         {
-            if (byEntity == null || byEntity.World == null || byEntity.World.Api == null)
-            {
-                return;
-            }
+            if (byEntity?.World?.Api == null) return;
+            if (slot?.Itemstack?.Attributes == null) return;
+            if (blockSel == null) return;
+
             var api = byEntity.World.Api;
-            if (slot == null || slot.Itemstack == null || slot.Itemstack.Attributes == null)
-            {
-                return;
-            }
-            if (blockSel == null)
-            {
-                return;
-            }
             var player = (byEntity as EntityPlayer)?.Player;
-            if (player == null)
-            {
-                return;
-            }
+            if (player == null) return;
+
             handling = EnumHandHandling.PreventDefault;
+
             var thieveryModSystem = api.ModLoader.GetModSystem<ThieveryModSystem>();
-            if (thieveryModSystem == null)
-            {
-                return;
-            }
-            var lockManager = thieveryModSystem.LockManager;
-            if (lockManager == null)
-            {
-                return;
-            }
-            string keyUid = slot.Itemstack.Attributes.GetString("keyUID", "");
-            if (blockSel.Position == null)
-            {
-                return;
-            }
+            var lockManager = thieveryModSystem?.LockManager;
+            if (lockManager == null) return;
 
             BlockPos pos = blockSel.Position;
             var lockData = lockManager.GetLockData(pos);
-            if (lockData == null)
+            if (lockData == null || string.IsNullOrEmpty(lockData.LockUid))
             {
                 return;
             }
+
+            string keyUid = slot.Itemstack.Attributes.GetString("keyUID", "");
             string blockLockUid = lockData.LockUid;
-            if (string.IsNullOrEmpty(blockLockUid))
-            {
-                return;
-            }
             if (string.IsNullOrEmpty(keyUid))
             {
-                if (!lockManager.IsPlayerAuthorized(pos, player))
-                {
-                    return;
-                }
-                slot.Itemstack.Attributes.SetString("keyUID", blockLockUid);
                 if (api.Side == EnumAppSide.Client)
                 {
-                    if (api is ICoreClientAPI capi)
+                    var capi = api as ICoreClientAPI;
+                    capi?.Network.GetChannel("thievery").SendPacket(new BindKeyToLockPacket
                     {
-                        ShowNameDialog(capi, slot);
-                    }
+                        BlockPos = pos
+                    });
+                }
+
+                return;
+            }
+            if (slot.Itemstack.Collectible.Code.Path == "key-aged")
+            {
+                Random rnd = new Random();
+                if (rnd.NextDouble() < ModConfig.Instance.Main.AgedKeyDamageChance)
+                {
+                    DamageItem(slot, ModConfig.Instance.Main.AgedKeyDamage, byEntity);
                 }
             }
-            else
+
+            if (keyUid == blockLockUid)
             {
-                if (slot.Itemstack.Collectible.Code.Path == "key-aged")
+                if (api.Side == EnumAppSide.Client)
                 {
-                    int durability = slot.Itemstack.Attributes.GetInt("durability", 0);
-                    Random rnd = new Random();
-                    if (rnd.NextDouble() < ModConfig.Instance.Main.AgedKeyDamageChance)
+                    var capi = api as ICoreClientAPI;
+                    capi?.Network.GetChannel("thievery").SendPacket(new UseKeyOnLockPacket
                     {
-                        bool keyBroken = DamageItem(slot, ModConfig.Instance.Main.AgedKeyDamage, byEntity);
-                        if (keyBroken)
-                        {
-                            if (byEntity.World.Api.Side == EnumAppSide.Client)
-                            {
-                                (byEntity.World.Api as ICoreClientAPI).Network.GetChannel("thievery")
-                                    .SendPacket(new ItemDamagePacket
-                                    {
-                                        InventoryId = slot.Inventory.InventoryID,
-                                        SlotId = slot.Inventory.GetSlotId(slot),
-                                        Damage = durability
-                                    });
-                            }
-                        }
-                    }
-                }
+                        BlockPos = pos,
+                        KeyUid = keyUid
+                    });
 
-                // ItemKey.cs (within HandleLockInteraction), after:
-                if (keyUid == blockLockUid)
-                {
-                    bool newLockState = lockManager.ToggleLock(pos);
-                    PlayLockSound(api, pos, newLockState);
-
-                    if (api.Side == EnumAppSide.Server)
+                    if (slot.Itemstack.Collectible.Code.Path == "key-aged")
                     {
-                        var be = api.World.BlockAccessor.GetBlockEntity(pos);
-                        var thiev = be?.GetBehavior<BlockEntityThieveryLockData>();
-                        if (thiev != null)
-                        {
-                            thiev.ClearAllLockouts();
-                            be.MarkDirty(true);
-                        }
-                    }
-                    if (slot.Itemstack.Collectible.Code.Path == "key-aged" && api.Side == EnumAppSide.Client)
-                    {
-                        var capi = api as ICoreClientAPI;
                         capi?.Network.GetChannel("thievery").SendPacket(new WorldgenPickRewardPacket
                         {
                             BlockPos = pos,
-                            LockUid  = lockData.LockUid,
+                            LockUid = lockData.LockUid,
                             LockType = lockData.LockType
                         });
                     }
                 }
+                return;
             }
         }
 
@@ -199,6 +153,7 @@ namespace Thievery.LockAndKey
                 {
                     var capi = api as ICoreClientAPI;
                 }
+
                 return;
             }
 
@@ -232,31 +187,6 @@ namespace Thievery.LockAndKey
             if (api.Side == EnumAppSide.Server)
             {
             }
-        }
-        private void ShowNameDialog(ICoreClientAPI capi, ItemSlot slot)
-        {
-            KeyNamingDialog dialog = new KeyNamingDialog(slot, capi);
-            dialog.OnNameSet += (newName) =>
-            {
-            };
-
-            dialog.TryOpen();
-            capi.Gui.RequestFocus(dialog);
-        }
-        private void PlayLockSound(ICoreAPI api, BlockPos pos, bool isLocked)
-        {
-            string soundPath = "thievery:sounds/lock";
-            AssetLocation sound = new AssetLocation(soundPath);
-            api.World.PlaySoundAt(
-                sound,
-                pos.X + 0.5,
-                pos.Y + 0.5,
-                pos.Z + 0.5,
-                null,
-                true,
-                32f,
-                1f
-            );
         }
 
         private bool DamageItem(ItemSlot itemSlot, int damage, EntityAgent byEntity)

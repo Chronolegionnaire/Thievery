@@ -145,4 +145,28 @@ namespace Thievery.LockAndKey
         Lock   = 1,
         Toggle = 2
     }
+    
+    [ProtoContract]
+    public class BindKeyToLockPacket
+    {
+        [ProtoMember(1)]
+        public BlockPos BlockPos { get; set; }
+    }
+
+    [ProtoContract]
+    public class OpenKeyNamingDialogPacket
+    {
+        [ProtoMember(1)]
+        public string KeyUid { get; set; }
+    }
+    
+    [ProtoContract]
+    public class UseKeyOnLockPacket
+    {
+        [ProtoMember(1)]
+        public BlockPos BlockPos { get; set; }
+
+        [ProtoMember(2)]
+        public string KeyUid { get; set; }
+    }
 }
