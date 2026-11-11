@@ -1,4 +1,5 @@
 {
+  "code": "thievery-lockpick-{metal}",
   "ingredient": { "type": "item", "code": "game:ingot-*", "name": "metal", "allowedVariants": [ "copper", "tinbronze", "bismuthbronze", "blackbronze", "iron", "meteoriciron", "steel"] },
   "name": "Lockpick",
   "pattern": [[
